@@ -12,12 +12,12 @@ design rationale before implementing any item below.
 
 ## 1. Data model
 - [ ] `users` model + seed script/CLI command to create the single user
-- [ ] `checking_accounts` model
-- [ ] `credit_card_settings` model (singleton)
-- [ ] `recurring_series` model
-- [ ] `transactions` model (with `recurring_series_id`, `occurrence_status`
+- [x] `checking_accounts` model
+- [x] `credit_card_settings` model (singleton)
+- [x] `recurring_series` model
+- [x] `transactions` model (with `recurring_series_id`, `occurrence_status`
       enum: `attached` | `detached` | `skipped`)
-- [ ] Alembic migration for all tables
+- [x] Alembic migration for all tables
 
 ## 2. Auth
 - [ ] Login page (username/password)

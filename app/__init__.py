@@ -11,4 +11,6 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
 
+    from app import models  # noqa: F401  (registers models with db.metadata)
+
     return app
