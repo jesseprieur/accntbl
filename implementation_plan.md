@@ -25,7 +25,7 @@ design rationale before implementing any item below.
 - [ ] Logout
 
 ## 3. Core domain logic
-- [ ] Recurring occurrence generator (given a `recurring_series`, produce
+- [x] Recurring occurrence generator (given a `recurring_series`, produce
       concrete dates within a date range, honoring cadence_type/custom
       interval/start/end date)
 - [ ] Credit card statement period calculator (given `statement_close_day`,

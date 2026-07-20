@@ -139,6 +139,22 @@ historical record-keeping, not just future projection.
   customization from being overwritten — that's why there's no equivalent
   "un-detach" for now.)
 
+## Recurring occurrence generation
+
+`app/services/recurring.py::generate_occurrences(series, range_start,
+range_end)` produces concrete dates for a `recurring_series` within a range,
+clipped to the series' own `start_date`/`end_date`. Cadence semantics:
+
+- `weekly`/`biweekly`: fixed 7/14-day interval from `start_date`.
+- `monthly`/`quarterly`/`yearly`: same day-of-month as `start_date`, every
+  1/3/12 months; day is clamped to the last day of the target month if it
+  doesn't exist there (e.g. Jan 31 monthly → Feb 28).
+- `semi_monthly`: not otherwise specified, so defined as twice per month —
+  `start_date`'s day-of-month, and that day + 15 (both clamped to month
+  length) — anchored to `start_date`, not calendar-fixed to the 1st/15th.
+- `custom`: `custom_interval_value` + `custom_interval_unit` (`days` /
+  `weeks` / `months`), same day/month arithmetic as above.
+
 ## Auth
 
 Simple single-user login (username/password against `users` table, hashed
