@@ -20,9 +20,9 @@ design rationale before implementing any item below.
 - [x] Alembic migration for all tables
 
 ## 2. Auth
-- [ ] Login page (username/password)
-- [ ] Session-based auth, `@login_required` on all app routes
-- [ ] Logout
+- [x] Login page (username/password)
+- [x] Session-based auth, `@login_required` on all app routes
+- [x] Logout
 
 ## 3. Core domain logic
 - [x] Recurring occurrence generator (given a `recurring_series`, produce

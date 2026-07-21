@@ -25,28 +25,28 @@ def runner(app):
 def test_create_user_seeds_a_new_user(app, runner):
     result = runner.invoke(
         args=["create-user"],
-        input="jesse\nsecret123\nsecret123\n",
+        input="anita\nsecret123\nsecret123\n",
     )
 
     assert result.exit_code == 0
     with app.app_context():
-        user = User.query.filter_by(username="jesse").one()
+        user = User.query.filter_by(username="anita").one()
         assert check_password_hash(user.password_hash, "secret123")
 
 
 def test_create_user_resets_password_for_existing_username(app, runner):
     with app.app_context():
-        db.session.add(User(username="jesse", password_hash="stale-hash"))
+        db.session.add(User(username="anita", password_hash="stale-hash"))
         db.session.commit()
 
     result = runner.invoke(
         args=["create-user"],
-        input="jesse\nnewpassword\nnewpassword\n",
+        input="anita\nnewpassword\nnewpassword\n",
     )
 
     assert result.exit_code == 0
     with app.app_context():
-        users = User.query.filter_by(username="jesse").all()
+        users = User.query.filter_by(username="anita").all()
         assert len(users) == 1
         assert check_password_hash(users[0].password_hash, "newpassword")
 
@@ -54,9 +54,9 @@ def test_create_user_resets_password_for_existing_username(app, runner):
 def test_create_user_requires_matching_password_confirmation(app, runner):
     result = runner.invoke(
         args=["create-user"],
-        input="jesse\nsecret123\nmismatch\n",
+        input="anita\nsecret123\nmismatch\n",
     )
 
     assert result.exit_code != 0
     with app.app_context():
-        assert User.query.filter_by(username="jesse").one_or_none() is None
+        assert User.query.filter_by(username="anita").one_or_none() is None

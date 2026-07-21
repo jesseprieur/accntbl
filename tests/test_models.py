@@ -27,10 +27,10 @@ def app():
 
 
 def test_user_roundtrip(app):
-    db.session.add(User(username="jesse", password_hash="hashed"))
+    db.session.add(User(username="anita", password_hash="hashed"))
     db.session.commit()
 
-    user = User.query.filter_by(username="jesse").one()
+    user = User.query.filter_by(username="anita").one()
     assert user.password_hash == "hashed"
 
 

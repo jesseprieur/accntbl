@@ -12,8 +12,12 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
 
     from app import models  # noqa: F401  (registers models with db.metadata)
+    from app.auth import auth_bp
+    from app.main import main_bp
     from app.cli import register_cli
 
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main_bp)
     register_cli(app)
 
     return app
