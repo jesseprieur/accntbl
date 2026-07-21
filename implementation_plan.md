@@ -30,10 +30,10 @@ design rationale before implementing any item below.
       interval/start/end date)
 - [x] Credit card statement period calculator (given `statement_close_day`,
       a date range → list of period boundaries)
-- [ ] Credit card payment-due amount calculator (sum `credit_amount`
+- [x] Credit card payment-due amount calculator (sum `credit_amount`
       transactions per closed period → generates virtual cash transaction on
       due date)
-- [ ] Running total calculator (baseline from `checking_accounts` +
+- [x] Running total calculator (baseline from `checking_accounts` +
       ascending walk through transactions with `occurrence_status != skipped`
       /generated CC payments)
 - [ ] Unit tests for all of the above (cadence edge cases, custom intervals,
