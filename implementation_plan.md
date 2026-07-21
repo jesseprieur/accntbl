@@ -11,7 +11,7 @@ design rationale before implementing any item below.
 - [x] `.env.example` with DB creds, Flask secret key
 
 ## 1. Data model
-- [ ] `users` model + seed script/CLI command to create the single user
+- [x] `users` model + seed script/CLI command to create the single user
 - [x] `checking_accounts` model
 - [x] `credit_card_settings` model (singleton)
 - [x] `recurring_series` model
@@ -36,7 +36,7 @@ design rationale before implementing any item below.
 - [x] Running total calculator (baseline from `checking_accounts` +
       ascending walk through transactions with `occurrence_status != skipped`
       /generated CC payments)
-- [ ] Unit tests for all of the above (cadence edge cases, custom intervals,
+- [x] Unit tests for all of the above (cadence edge cases, custom intervals,
       statement period boundaries, negative balance detection)
 
 ## 4. Settings page

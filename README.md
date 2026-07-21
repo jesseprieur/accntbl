@@ -78,9 +78,14 @@ docker compose up --build
 ```
 
 The app will be available at `http://localhost:5000` (or whatever port is
-configured in `.env`). On first run, use the seed script (see
-implementation_plan.md, section 8) to create the initial user and a starting
-checking account.
+configured in `.env`). On first run, create the initial user:
+
+```bash
+docker compose exec web flask create-user
+```
+
+(Checking account and credit card settings are created via the Settings page
+once it's built — see implementation_plan.md, section 4.)
 
 ## Usage
 
