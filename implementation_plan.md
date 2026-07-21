@@ -28,7 +28,7 @@ design rationale before implementing any item below.
 - [x] Recurring occurrence generator (given a `recurring_series`, produce
       concrete dates within a date range, honoring cadence_type/custom
       interval/start/end date)
-- [ ] Credit card statement period calculator (given `statement_close_day`,
+- [x] Credit card statement period calculator (given `statement_close_day`,
       a date range → list of period boundaries)
 - [ ] Credit card payment-due amount calculator (sum `credit_amount`
       transactions per closed period → generates virtual cash transaction on
