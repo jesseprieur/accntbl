@@ -46,7 +46,7 @@ design rationale before implementing any item below.
       starting balance)
 
 ## 5. Main table view
-- [ ] Backend endpoint: paginated transaction window by date range
+- [x] Backend endpoint: paginated transaction window by date range
       (merges real `transactions` rows + virtual CC payment-due rows,
       computes running total)
 - [ ] Table page renders initial window centered on "today"

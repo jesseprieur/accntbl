@@ -78,11 +78,17 @@ docker compose up --build
 ```
 
 The app will be available at `http://localhost:5000` (or whatever port is
-configured in `.env`). On first run, create the initial user:
+configured in `.env`). On first run, apply the database migrations and
+create the initial user:
 
 ```bash
+docker compose exec web flask db upgrade
 docker compose exec web flask create-user
 ```
+
+Run `flask db upgrade` again any time you pull changes that add new
+migrations. To roll back the most recent migration, use
+`docker compose exec web flask db downgrade -1`.
 
 (Checking account and credit card settings are created via the **Settings**
 page at `/settings`.)
