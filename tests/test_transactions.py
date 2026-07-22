@@ -362,3 +362,113 @@ def test_delete_attached_series_occurrence_detaches_instead_of_deleting(client, 
 def test_delete_missing_transaction_returns_404(client):
     response = client.delete("/transactions/999999")
     assert response.status_code == 404
+
+
+def _make_series_occurrence(app, occurrence_status=OccurrenceStatus.attached):
+    with app.app_context():
+        series = RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=dt.date(2026, 7, 1),
+        )
+        db.session.add(series)
+        db.session.commit()
+
+        txn = Transaction(
+            name="Paycheck",
+            cash_amount=Decimal("500.00"),
+            date=dt.date(2026, 7, 1),
+            recurring_series_id=series.id,
+            occurrence_status=occurrence_status,
+        )
+        db.session.add(txn)
+        db.session.commit()
+        return txn.id
+
+
+def test_skip_requires_login(app):
+    txn_id = _make_series_occurrence(app)
+    anon_client = app.test_client()
+    response = anon_client.post(f"/transactions/{txn_id}/skip")
+    assert response.status_code == 302
+
+
+def test_skip_sets_occurrence_status_skipped(client, app):
+    txn_id = _make_series_occurrence(app)
+
+    response = client.post(f"/transactions/{txn_id}/skip")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["occurrence_status"] == "skipped"
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated.occurrence_status == OccurrenceStatus.skipped
+
+
+def test_skip_rejects_one_off_transaction(client, app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.post(f"/transactions/{txn_id}/skip")
+    assert response.status_code == 400
+
+
+def test_skip_removes_row_from_window_and_running_total(client, app):
+    txn_id = _make_series_occurrence(app)
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("0.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        db.session.commit()
+
+    client.post(f"/transactions/{txn_id}/skip")
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    data = response.get_json()
+    assert data["rows"] == []
+
+
+def test_unskip_requires_login(app):
+    txn_id = _make_series_occurrence(app, occurrence_status=OccurrenceStatus.skipped)
+    anon_client = app.test_client()
+    response = anon_client.post(f"/transactions/{txn_id}/unskip")
+    assert response.status_code == 302
+
+
+def test_unskip_sets_occurrence_status_attached(client, app):
+    txn_id = _make_series_occurrence(app, occurrence_status=OccurrenceStatus.skipped)
+
+    response = client.post(f"/transactions/{txn_id}/unskip")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["occurrence_status"] == "attached"
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated.occurrence_status == OccurrenceStatus.attached
+
+
+def test_unskip_rejects_non_skipped_transaction(client, app):
+    txn_id = _make_series_occurrence(app, occurrence_status=OccurrenceStatus.attached)
+
+    response = client.post(f"/transactions/{txn_id}/unskip")
+    assert response.status_code == 400
+
+
+def test_unskip_missing_transaction_returns_404(client):
+    response = client.post("/transactions/999999/unskip")
+    assert response.status_code == 404
+
+
+def test_skip_missing_transaction_returns_404(client):
+    response = client.post("/transactions/999999/skip")
+    assert response.status_code == 404

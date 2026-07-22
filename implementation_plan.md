@@ -59,9 +59,9 @@ design rationale before implementing any item below.
       PATCH
 - [x] Delete row (single occurrence → sets `occurrence_status = detached`;
       one-off → hard delete)
-- [ ] "Skip this occurrence" action for recurring rows
+- [x] "Skip this occurrence" action for recurring rows
       (`occurrence_status = skipped`)
-- [ ] "Un-skip" action for recurring rows (`occurrence_status = skipped` →
+- [x] "Un-skip" action for recurring rows (`occurrence_status = skipped` →
       `attached`; no "un-detach" equivalent yet)
 - [ ] Add one-off transaction (modal/form)
 - [ ] Add recurring series (modal/form: name, kind, amount, cadence, start

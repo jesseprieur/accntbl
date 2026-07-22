@@ -57,6 +57,7 @@
       tr.classList.add("table-primary");
     }
     const editable = !row.is_virtual;
+    const skippable = editable && row.recurring_series_id != null;
     tr.innerHTML = `
       ${editableCell("date", row.date, editable)}
       ${editableCell("name", row.name, editable)}
@@ -64,7 +65,10 @@
       ${editableCell("credit_amount", formatAmount(row.credit_amount), editable)}
       <td>${formatAmount(row.running_total)}</td>
       ${editableCell("notes", row.notes || "", editable)}
-      <td>${editable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}</td>
+      <td>
+        ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip">Skip</button>' : ""}
+        ${editable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
+      </td>
     `;
     return tr;
   }
@@ -129,12 +133,35 @@
       });
   }
 
+  function skipRow(tr) {
+    const id = tr.dataset.id;
+    if (!id) return;
+    if (!window.confirm("Skip this occurrence?")) return;
+
+    fetch(`/transactions/${id}/skip`, { method: "POST" })
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(data.error || "Failed to skip occurrence.");
+          return;
+        }
+        reloadLoadedWindow();
+      });
+  }
+
   tbody.addEventListener("click", (event) => {
-    const button = event.target.closest('[data-action="delete"]');
-    if (!button) return;
-    const tr = button.closest("tr");
-    if (!tr) return;
-    deleteRow(tr);
+    const deleteButton = event.target.closest('[data-action="delete"]');
+    if (deleteButton) {
+      const tr = deleteButton.closest("tr");
+      if (tr) deleteRow(tr);
+      return;
+    }
+
+    const skipButton = event.target.closest('[data-action="skip"]');
+    if (skipButton) {
+      const tr = skipButton.closest("tr");
+      if (tr) skipRow(tr);
+    }
   });
 
   function reloadLoadedWindow() {

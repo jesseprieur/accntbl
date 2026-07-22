@@ -164,6 +164,44 @@ def update(transaction_id):
     )
 
 
+@transactions_bp.route("/<int:transaction_id>/skip", methods=["POST"])
+@login_required
+def skip(transaction_id):
+    transaction = Transaction.query.get_or_404(transaction_id)
+
+    if transaction.recurring_series_id is None:
+        return jsonify({"error": "Only recurring occurrences can be skipped."}), 400
+
+    transaction.occurrence_status = OccurrenceStatus.skipped
+    db.session.commit()
+
+    return jsonify(
+        {
+            "id": transaction.id,
+            "occurrence_status": transaction.occurrence_status.value,
+        }
+    )
+
+
+@transactions_bp.route("/<int:transaction_id>/unskip", methods=["POST"])
+@login_required
+def unskip(transaction_id):
+    transaction = Transaction.query.get_or_404(transaction_id)
+
+    if transaction.occurrence_status != OccurrenceStatus.skipped:
+        return jsonify({"error": "Transaction is not currently skipped."}), 400
+
+    transaction.occurrence_status = OccurrenceStatus.attached
+    db.session.commit()
+
+    return jsonify(
+        {
+            "id": transaction.id,
+            "occurrence_status": transaction.occurrence_status.value,
+        }
+    )
+
+
 @transactions_bp.route("/<int:transaction_id>", methods=["DELETE"])
 @login_required
 def delete(transaction_id):
