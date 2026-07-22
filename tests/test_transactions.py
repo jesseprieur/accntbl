@@ -437,6 +437,28 @@ def test_skip_removes_row_from_window_and_running_total(client, app):
     assert data["rows"] == []
 
 
+def test_window_include_skipped_returns_skipped_row_without_running_total(client, app):
+    txn_id = _make_series_occurrence(app)
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("0.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        db.session.commit()
+
+    client.post(f"/transactions/{txn_id}/skip")
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31", "include_skipped": "1"},
+    )
+    data = response.get_json()
+    assert len(data["rows"]) == 1
+    row = data["rows"][0]
+    assert row["id"] == txn_id
+    assert row["occurrence_status"] == "skipped"
+    assert row["running_total"] is None
+
+
 def test_unskip_requires_login(app):
     txn_id = _make_series_occurrence(app, occurrence_status=OccurrenceStatus.skipped)
     anon_client = app.test_client()

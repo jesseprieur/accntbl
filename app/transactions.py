@@ -60,6 +60,8 @@ def window():
     if start > end:
         return jsonify({"error": "start must not be after end."}), 400
 
+    include_skipped = request.args.get("include_skipped") == "1"
+
     history = Transaction.query.filter(Transaction.date <= end).order_by(
         Transaction.date
     ).all()
@@ -103,6 +105,26 @@ def window():
         for row in ledger
         if start <= row.date <= end
     ]
+
+    if include_skipped:
+        skipped_rows = [
+            {
+                "id": t.id,
+                "name": t.name,
+                "date": t.date.isoformat(),
+                "cash_amount": str(t.cash_amount) if t.cash_amount else "0",
+                "credit_amount": str(t.credit_amount) if t.credit_amount else None,
+                "notes": t.notes,
+                "recurring_series_id": t.recurring_series_id,
+                "occurrence_status": t.occurrence_status.value,
+                "running_total": None,
+                "is_negative": False,
+                "is_virtual": False,
+            }
+            for t in history
+            if t.occurrence_status == OccurrenceStatus.skipped and start <= t.date <= end
+        ]
+        rows = sorted(rows + skipped_rows, key=lambda r: r["date"])
 
     return jsonify({"start": start.isoformat(), "end": end.isoformat(), "rows": rows})
 

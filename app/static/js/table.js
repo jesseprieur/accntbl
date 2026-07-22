@@ -5,6 +5,7 @@
 
   const today = container.dataset.today;
   const windowUrl = container.dataset.windowUrl;
+  const showSkippedToggle = document.getElementById("show-skipped-toggle");
 
   const PAGE_DAYS = 30;
   const FUTURE_LIMIT_DAYS = 365;
@@ -56,18 +57,24 @@
     if (row.date === today) {
       tr.classList.add("table-primary");
     }
-    const editable = !row.is_virtual;
+    const isSkipped = row.occurrence_status === "skipped";
+    const editable = !row.is_virtual && !isSkipped;
     const skippable = editable && row.recurring_series_id != null;
+    const unskippable = !row.is_virtual && row.recurring_series_id != null && isSkipped;
+    if (isSkipped) {
+      tr.classList.add("text-muted");
+    }
     tr.innerHTML = `
       ${editableCell("date", row.date, editable)}
       ${editableCell("name", row.name, editable)}
       ${editableCell("cash_amount", formatAmount(row.cash_amount), editable)}
       ${editableCell("credit_amount", formatAmount(row.credit_amount), editable)}
-      <td>${formatAmount(row.running_total)}</td>
+      <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
       ${editableCell("notes", row.notes || "", editable)}
       <td>
         ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip">Skip</button>' : ""}
-        ${editable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
+        ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip">Un-skip</button>' : ""}
+        ${!row.is_virtual ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
       </td>
     `;
     return tr;
@@ -149,6 +156,21 @@
       });
   }
 
+  function unskipRow(tr) {
+    const id = tr.dataset.id;
+    if (!id) return;
+
+    fetch(`/transactions/${id}/unskip`, { method: "POST" })
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(data.error || "Failed to un-skip occurrence.");
+          return;
+        }
+        reloadLoadedWindow();
+      });
+  }
+
   tbody.addEventListener("click", (event) => {
     const deleteButton = event.target.closest('[data-action="delete"]');
     if (deleteButton) {
@@ -161,8 +183,19 @@
     if (skipButton) {
       const tr = skipButton.closest("tr");
       if (tr) skipRow(tr);
+      return;
+    }
+
+    const unskipButton = event.target.closest('[data-action="unskip"]');
+    if (unskipButton) {
+      const tr = unskipButton.closest("tr");
+      if (tr) unskipRow(tr);
     }
   });
+
+  if (showSkippedToggle) {
+    showSkippedToggle.addEventListener("change", reloadLoadedWindow);
+  }
 
   function reloadLoadedWindow() {
     if (earliestLoaded === null || latestLoaded === null) return;
@@ -216,8 +249,9 @@
   }
 
   function fetchWindow(start, end) {
-    return fetch(`${windowUrl}?start=${toIso(start)}&end=${toIso(end)}`).then((response) =>
-      response.json()
+    const includeSkipped = showSkippedToggle && showSkippedToggle.checked ? "&include_skipped=1" : "";
+    return fetch(`${windowUrl}?start=${toIso(start)}&end=${toIso(end)}${includeSkipped}`).then(
+      (response) => response.json()
     );
   }
 
