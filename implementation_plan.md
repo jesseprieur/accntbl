@@ -49,10 +49,10 @@ design rationale before implementing any item below.
 - [x] Backend endpoint: paginated transaction window by date range
       (merges real `transactions` rows + virtual CC payment-due rows,
       computes running total)
-- [ ] Table page renders initial window centered on "today"
-- [ ] Ajax infinite scroll: fetch more future rows on scroll down (up to
+- [x] Table page renders initial window centered on "today"
+- [x] Ajax infinite scroll: fetch more future rows on scroll down (up to
       1 year out), fetch more past rows on scroll up
-- [ ] Negative running-total rows visually highlighted
+- [x] Negative running-total rows visually highlighted
 
 ## 6. Row editing
 - [ ] Inline edit (name, cash_amount, credit_amount, date, notes) via Ajax

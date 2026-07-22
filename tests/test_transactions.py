@@ -121,3 +121,40 @@ def test_window_includes_virtual_credit_card_payment_rows(client, app):
     assert virtual_rows[0]["date"] == "2026-07-25"
     assert virtual_rows[0]["cash_amount"] == "-75.00"
     assert virtual_rows[0]["id"] is None
+
+
+def test_window_pagination_stitches_to_match_a_single_wide_fetch(client, app):
+    """The infinite-scroll UI fetches adjacent narrow windows (older-past,
+    newer-future) as the user scrolls, rather than one wide window. Each
+    fetch must agree with what a single wide fetch would have returned,
+    including running totals, or scrolling would show inconsistent numbers.
+    """
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("1000.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        for i in range(6):
+            db.session.add(Transaction(
+                name=f"Txn {i}",
+                cash_amount=Decimal("-25.00"),
+                date=dt.date(2026, 7, 1) + dt.timedelta(days=i * 10),
+            ))
+        db.session.commit()
+
+    wide = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-08-20"},
+    ).get_json()
+
+    past = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-25"},
+    ).get_json()
+    future = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-26", "end": "2026-08-20"},
+    ).get_json()
+
+    stitched_rows = past["rows"] + future["rows"]
+    assert stitched_rows == wide["rows"]
+    assert len(wide["rows"]) == 6
