@@ -357,4 +357,60 @@
         });
     });
   }
+
+  const seriesCadenceSelect = document.getElementById("add-series-cadence");
+  const seriesCustomFields = document.getElementById("add-series-custom-fields");
+  function toggleSeriesCustomFields() {
+    if (seriesCadenceSelect && seriesCustomFields) {
+      seriesCustomFields.classList.toggle("d-none", seriesCadenceSelect.value !== "custom");
+    }
+  }
+  if (seriesCadenceSelect) {
+    seriesCadenceSelect.addEventListener("change", toggleSeriesCustomFields);
+    toggleSeriesCustomFields();
+  }
+
+  const addSeriesForm = document.getElementById("add-series-form");
+  if (addSeriesForm) {
+    const addSeriesModalEl = document.getElementById("add-series-modal");
+    const addSeriesError = document.getElementById("add-series-error");
+
+    addSeriesForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(addSeriesForm);
+      const body = {
+        name: formData.get("name"),
+        kind: formData.get("kind"),
+        amount: formData.get("amount"),
+        cadence_type: formData.get("cadence_type"),
+        custom_interval_value: formData.get("custom_interval_value") || null,
+        custom_interval_unit: formData.get("custom_interval_unit") || null,
+        start_date: formData.get("start_date"),
+        end_date: formData.get("end_date") || null,
+        notes: formData.get("notes") || null,
+      };
+
+      fetch("/transactions/series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            addSeriesError.textContent = data.error || "Failed to add recurring series.";
+            addSeriesError.classList.remove("d-none");
+            return;
+          }
+          addSeriesError.classList.add("d-none");
+          addSeriesForm.reset();
+          toggleSeriesCustomFields();
+          const modal = window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(addSeriesModalEl)
+            : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        });
+    });
+  }
 })();

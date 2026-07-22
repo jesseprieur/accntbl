@@ -571,3 +571,198 @@ def test_create_rejects_invalid_amount(client):
         json={"name": "Rent", "date": "2026-07-15", "cash_amount": "not-a-number"},
     )
     assert response.status_code == 400
+
+
+def test_create_series_requires_login(app):
+    anon_client = app.test_client()
+    response = anon_client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    assert response.status_code == 302
+
+
+def test_create_series_monthly_materializes_attached_occurrences(client, app):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+            "notes": "biweekly job",
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["name"] == "Paycheck"
+    assert data["kind"] == "cash"
+    assert data["cadence_type"] == "monthly"
+    assert data["occurrences_created"] == 3
+
+    with app.app_context():
+        series = RecurringSeries.query.get(data["id"])
+        assert series is not None
+        assert series.amount == Decimal("1500.00")
+        assert series.start_date == dt.date(2026, 7, 1)
+        assert series.end_date == dt.date(2026, 9, 1)
+
+        occurrences = Transaction.query.filter_by(recurring_series_id=series.id).order_by(
+            Transaction.date
+        ).all()
+        assert [t.date for t in occurrences] == [
+            dt.date(2026, 7, 1),
+            dt.date(2026, 8, 1),
+            dt.date(2026, 9, 1),
+        ]
+        for occurrence in occurrences:
+            assert occurrence.cash_amount == Decimal("1500.00")
+            assert occurrence.credit_amount is None
+            assert occurrence.occurrence_status == OccurrenceStatus.attached
+            assert occurrence.notes == "biweekly job"
+
+
+def test_create_series_credit_kind_populates_credit_amount(client, app):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Subscription",
+            "kind": "credit",
+            "amount": "-9.99",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-15",
+            "end_date": "2026-07-15",
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["occurrences_created"] == 1
+
+    with app.app_context():
+        occurrence = Transaction.query.filter_by(recurring_series_id=data["id"]).one()
+        assert occurrence.credit_amount == Decimal("-9.99")
+        assert occurrence.cash_amount is None
+
+
+def test_create_series_custom_cadence_requires_interval_fields(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Every 10 days",
+            "kind": "cash",
+            "amount": "-20.00",
+            "cadence_type": "custom",
+            "start_date": "2026-07-01",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_create_series_custom_cadence_materializes_with_interval(client, app):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Every 10 days",
+            "kind": "cash",
+            "amount": "-20.00",
+            "cadence_type": "custom",
+            "custom_interval_value": 10,
+            "custom_interval_unit": "days",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-25",
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["occurrences_created"] == 3
+
+    with app.app_context():
+        occurrences = Transaction.query.filter_by(recurring_series_id=data["id"]).order_by(
+            Transaction.date
+        ).all()
+        assert [t.date for t in occurrences] == [
+            dt.date(2026, 7, 1),
+            dt.date(2026, 7, 11),
+            dt.date(2026, 7, 21),
+        ]
+
+
+def test_create_series_rejects_missing_name(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_create_series_rejects_invalid_kind(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "bogus",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_create_series_rejects_end_date_before_start_date(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-06-01",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_create_series_appears_in_window_with_running_total(client, app):
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("1000.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        db.session.commit()
+
+    client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-01",
+        },
+    )
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    data = response.get_json()
+    assert len(data["rows"]) == 1
+    assert data["rows"][0]["name"] == "Paycheck"
+    assert data["rows"][0]["recurring_series_id"] is not None
+    assert data["rows"][0]["occurrence_status"] == "attached"
+    assert data["rows"][0]["running_total"] == "1500.00"

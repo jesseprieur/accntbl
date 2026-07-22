@@ -13,13 +13,24 @@ from flask import Blueprint, jsonify, request
 
 from app.auth import login_required
 from app.extensions import db
-from app.models import CheckingAccount, CreditCardSettings, OccurrenceStatus, Transaction
+from app.models import (
+    CadenceType,
+    CheckingAccount,
+    CreditCardSettings,
+    CustomIntervalUnit,
+    Kind,
+    OccurrenceStatus,
+    RecurringSeries,
+    Transaction,
+)
+from app.services.recurring import generate_occurrences
 from app.services.running_total import compute_running_total
 
 transactions_bp = Blueprint("transactions", __name__, url_prefix="/transactions")
 
 _DEFAULT_PAST_DAYS = 30
 _DEFAULT_FUTURE_DAYS = 90
+_MATERIALIZE_FUTURE_DAYS = 365
 
 
 def _parse_date_param(value, field_label):
@@ -36,6 +47,14 @@ def _parse_decimal_field(value, field_label):
         return Decimal(str(value))
     except InvalidOperation:
         raise ValueError(f"{field_label} must be a number.")
+
+
+def _parse_enum_field(enum_cls, value, field_label):
+    try:
+        return enum_cls(value)
+    except ValueError:
+        allowed = ", ".join(member.value for member in enum_cls)
+        raise ValueError(f"{field_label} must be one of: {allowed}.")
 
 
 @transactions_bp.route("/window", methods=["GET"])
@@ -169,6 +188,112 @@ def create():
             "notes": transaction.notes,
             "recurring_series_id": transaction.recurring_series_id,
             "occurrence_status": None,
+        }
+    ), 201
+
+
+@transactions_bp.route("/series", methods=["POST"])
+@login_required
+def create_series():
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        name = (payload.get("name") or "").strip()
+        if not name:
+            raise ValueError("Name is required.")
+
+        kind = _parse_enum_field(Kind, payload.get("kind"), "Kind")
+
+        amount = _parse_decimal_field(payload.get("amount"), "Amount")
+        if amount is None:
+            raise ValueError("Amount is required.")
+
+        cadence_type = _parse_enum_field(
+            CadenceType, payload.get("cadence_type"), "Cadence"
+        )
+
+        custom_interval_value = None
+        custom_interval_unit = None
+        if cadence_type == CadenceType.custom:
+            custom_interval_value = payload.get("custom_interval_value")
+            try:
+                custom_interval_value = int(custom_interval_value)
+                if custom_interval_value <= 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "Custom interval value is required and must be a positive integer."
+                )
+            custom_interval_unit = _parse_enum_field(
+                CustomIntervalUnit,
+                payload.get("custom_interval_unit"),
+                "Custom interval unit",
+            )
+
+        if "start_date" not in payload or not payload["start_date"]:
+            raise ValueError("Start date is required.")
+        start_date = _parse_date_param(payload["start_date"], "Start date")
+
+        end_date = None
+        if payload.get("end_date"):
+            end_date = _parse_date_param(payload["end_date"], "End date")
+            if end_date < start_date:
+                raise ValueError("End date must not be before start date.")
+
+        notes = payload.get("notes") or None
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    series = RecurringSeries(
+        name=name,
+        kind=kind,
+        amount=amount,
+        cadence_type=cadence_type,
+        custom_interval_value=custom_interval_value,
+        custom_interval_unit=custom_interval_unit,
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes,
+    )
+    db.session.add(series)
+    db.session.flush()
+
+    horizon = date.today() + timedelta(days=_MATERIALIZE_FUTURE_DAYS)
+    range_end = min(end_date, horizon) if end_date is not None else horizon
+    occurrence_dates = generate_occurrences(series, start_date, range_end)
+
+    for occurrence_date in occurrence_dates:
+        db.session.add(
+            Transaction(
+                name=series.name,
+                cash_amount=amount if kind == Kind.cash else None,
+                credit_amount=amount if kind == Kind.credit else None,
+                date=occurrence_date,
+                notes=notes,
+                recurring_series_id=series.id,
+                occurrence_status=OccurrenceStatus.attached,
+            )
+        )
+
+    db.session.commit()
+
+    return jsonify(
+        {
+            "id": series.id,
+            "name": series.name,
+            "kind": series.kind.value,
+            "amount": str(series.amount),
+            "cadence_type": series.cadence_type.value,
+            "custom_interval_value": series.custom_interval_value,
+            "custom_interval_unit": (
+                series.custom_interval_unit.value
+                if series.custom_interval_unit
+                else None
+            ),
+            "start_date": series.start_date.isoformat(),
+            "end_date": series.end_date.isoformat() if series.end_date else None,
+            "notes": series.notes,
+            "occurrences_created": len(occurrence_dates),
         }
     ), 201
 
