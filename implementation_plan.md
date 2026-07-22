@@ -63,7 +63,7 @@ design rationale before implementing any item below.
       (`occurrence_status = skipped`)
 - [x] "Un-skip" action for recurring rows (`occurrence_status = skipped` →
       `attached`; no "un-detach" equivalent yet)
-- [ ] Add one-off transaction (modal/form)
+- [x] Add one-off transaction (modal/form)
 - [ ] Add recurring series (modal/form: name, kind, amount, cadence, start
       date, optional end date)
 - [ ] Edit recurring series (propagates to `occurrence_status = attached`

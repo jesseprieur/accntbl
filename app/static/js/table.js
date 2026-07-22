@@ -286,4 +286,41 @@
       latestLoaded = toDate(data.end);
       scrollToToday();
     });
+
+  const addForm = document.getElementById("add-transaction-form");
+  if (addForm) {
+    const addModalEl = document.getElementById("add-transaction-modal");
+    const addError = document.getElementById("add-transaction-error");
+
+    addForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(addForm);
+      const body = {
+        name: formData.get("name"),
+        date: formData.get("date"),
+        cash_amount: formData.get("cash_amount") || null,
+        credit_amount: formData.get("credit_amount") || null,
+        notes: formData.get("notes") || null,
+      };
+
+      fetch("/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            addError.textContent = data.error || "Failed to add transaction.";
+            addError.classList.remove("d-none");
+            return;
+          }
+          addError.classList.add("d-none");
+          addForm.reset();
+          const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(addModalEl) : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        });
+    });
+  }
 })();

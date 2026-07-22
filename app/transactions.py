@@ -107,6 +107,50 @@ def window():
     return jsonify({"start": start.isoformat(), "end": end.isoformat(), "rows": rows})
 
 
+@transactions_bp.route("", methods=["POST"])
+@login_required
+def create():
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        name = (payload.get("name") or "").strip()
+        if not name:
+            raise ValueError("Name is required.")
+
+        if "date" not in payload or not payload["date"]:
+            raise ValueError("Date is required.")
+        txn_date = _parse_date_param(payload["date"], "Date")
+
+        cash_amount = _parse_decimal_field(payload.get("cash_amount"), "Cash amount")
+        credit_amount = _parse_decimal_field(payload.get("credit_amount"), "Credit amount")
+        notes = payload.get("notes") or None
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    transaction = Transaction(
+        name=name,
+        cash_amount=cash_amount,
+        credit_amount=credit_amount,
+        date=txn_date,
+        notes=notes,
+    )
+    db.session.add(transaction)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "id": transaction.id,
+            "name": transaction.name,
+            "date": transaction.date.isoformat(),
+            "cash_amount": str(transaction.cash_amount) if transaction.cash_amount is not None else None,
+            "credit_amount": str(transaction.credit_amount) if transaction.credit_amount is not None else None,
+            "notes": transaction.notes,
+            "recurring_series_id": transaction.recurring_series_id,
+            "occurrence_status": None,
+        }
+    ), 201
+
+
 @transactions_bp.route("/<int:transaction_id>", methods=["PATCH"])
 @login_required
 def update(transaction_id):

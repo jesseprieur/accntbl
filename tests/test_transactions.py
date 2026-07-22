@@ -472,3 +472,80 @@ def test_unskip_missing_transaction_returns_404(client):
 def test_skip_missing_transaction_returns_404(client):
     response = client.post("/transactions/999999/skip")
     assert response.status_code == 404
+
+
+def test_create_requires_login(app):
+    anon_client = app.test_client()
+    response = anon_client.post(
+        "/transactions",
+        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "-400.00"},
+    )
+    assert response.status_code == 302
+
+
+def test_create_one_off_transaction(client, app):
+    response = client.post(
+        "/transactions",
+        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "-400.00", "notes": "monthly"},
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["name"] == "Rent"
+    assert data["date"] == "2026-07-15"
+    assert data["cash_amount"] == "-400.00"
+    assert data["recurring_series_id"] is None
+
+    with app.app_context():
+        created = Transaction.query.get(data["id"])
+        assert created is not None
+        assert created.name == "Rent"
+        assert created.cash_amount == Decimal("-400.00")
+        assert created.date == dt.date(2026, 7, 15)
+        assert created.notes == "monthly"
+        assert created.recurring_series_id is None
+
+
+def test_create_appears_in_window_with_running_total(client, app):
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("1000.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        db.session.commit()
+
+    client.post(
+        "/transactions",
+        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "-400.00"},
+    )
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    data = response.get_json()
+    assert len(data["rows"]) == 1
+    assert data["rows"][0]["name"] == "Rent"
+    assert data["rows"][0]["running_total"] == "600.00"
+
+
+def test_create_requires_name(client):
+    response = client.post(
+        "/transactions",
+        json={"name": "  ", "date": "2026-07-15", "cash_amount": "-400.00"},
+    )
+    assert response.status_code == 400
+
+
+def test_create_requires_date(client):
+    response = client.post(
+        "/transactions",
+        json={"name": "Rent", "cash_amount": "-400.00"},
+    )
+    assert response.status_code == 400
+
+
+def test_create_rejects_invalid_amount(client):
+    response = client.post(
+        "/transactions",
+        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "not-a-number"},
+    )
+    assert response.status_code == 400
