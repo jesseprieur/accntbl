@@ -84,8 +84,8 @@ configured in `.env`). On first run, create the initial user:
 docker compose exec web flask create-user
 ```
 
-(Checking account and credit card settings are created via the Settings page
-once it's built — see implementation_plan.md, section 4.)
+(Checking account and credit card settings are created via the **Settings**
+page at `/settings`.)
 
 ## Usage
 

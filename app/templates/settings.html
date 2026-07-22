@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — accntbl{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Settings</h1>
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm">Back</a>
+  </div>
+
+  <h2 class="h5">Checking accounts</h2>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Starting balance</th>
+        <th>As of date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for account in checking_accounts %}
+        <tr>
+          <td><input type="text" form="edit-account-{{ account.id }}" class="form-control form-control-sm" name="name" value="{{ account.name }}" required></td>
+          <td><input type="number" step="0.01" form="edit-account-{{ account.id }}" class="form-control form-control-sm" name="starting_balance" value="{{ account.starting_balance }}" required></td>
+          <td><input type="date" form="edit-account-{{ account.id }}" class="form-control form-control-sm" name="as_of_date" value="{{ account.as_of_date }}" required></td>
+          <td class="text-nowrap">
+            <button type="submit" form="edit-account-{{ account.id }}" class="btn btn-primary btn-sm">Save</button>
+            <button type="submit" form="delete-account-{{ account.id }}" class="btn btn-outline-danger btn-sm">Remove</button>
+          </td>
+        </tr>
+        <form id="edit-account-{{ account.id }}" method="post" action="{{ url_for('settings.update_checking_account', account_id=account.id) }}"></form>
+        <form id="delete-account-{{ account.id }}" method="post" action="{{ url_for('settings.delete_checking_account', account_id=account.id) }}"></form>
+      {% endfor %}
+      <tr>
+        <td><input type="text" form="create-account" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
+        <td><input type="number" step="0.01" form="create-account" class="form-control form-control-sm" name="starting_balance" placeholder="0.00" required></td>
+        <td><input type="date" form="create-account" class="form-control form-control-sm" name="as_of_date" value="{{ today }}" required></td>
+        <td><button type="submit" form="create-account" class="btn btn-success btn-sm">Add</button></td>
+      </tr>
+      <form id="create-account" method="post" action="{{ url_for('settings.create_checking_account') }}"></form>
+    </tbody>
+  </table>
+
+  <h2 class="h5 mt-4">Credit card</h2>
+  <form method="post" action="{{ url_for('settings.update_credit_card') }}" class="row g-2 align-items-end">
+    <div class="col-auto">
+      <label class="form-label">Name</label>
+      <input type="text" class="form-control form-control-sm" name="name"
+             value="{{ credit_card.name if credit_card else 'Default Credit Card' }}" required>
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Statement close day</label>
+      <input type="number" min="1" max="31" class="form-control form-control-sm" name="statement_close_day"
+             value="{{ credit_card.statement_close_day if credit_card else '' }}" required>
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Payment due offset (days)</label>
+      <input type="number" class="form-control form-control-sm" name="payment_due_offset_days"
+             value="{{ credit_card.payment_due_offset_days if credit_card else '' }}" required>
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Starting balance</label>
+      <input type="number" step="0.01" class="form-control form-control-sm" name="starting_balance"
+             value="{{ credit_card.starting_balance if credit_card else '' }}">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    </div>
+  </form>
+{% endblock %}

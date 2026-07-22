@@ -40,9 +40,9 @@ design rationale before implementing any item below.
       statement period boundaries, negative balance detection)
 
 ## 4. Settings page
-- [ ] View/edit checking accounts (add/edit/remove, starting balance,
+- [x] View/edit checking accounts (add/edit/remove, starting balance,
       as_of_date)
-- [ ] View/edit credit card settings (statement close day, due offset,
+- [x] View/edit credit card settings (statement close day, due offset,
       starting balance)
 
 ## 5. Main table view
