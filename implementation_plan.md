@@ -55,9 +55,9 @@ design rationale before implementing any item below.
 - [x] Negative running-total rows visually highlighted
 
 ## 6. Row editing
-- [ ] Inline edit (name, cash_amount, credit_amount, date, notes) via Ajax
+- [x] Inline edit (name, cash_amount, credit_amount, date, notes) via Ajax
       PATCH
-- [ ] Delete row (single occurrence → sets `occurrence_status = detached`;
+- [x] Delete row (single occurrence → sets `occurrence_status = detached`;
       one-off → hard delete)
 - [ ] "Skip this occurrence" action for recurring rows
       (`occurrence_status = skipped`)

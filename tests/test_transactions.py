@@ -6,7 +6,16 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import CheckingAccount, CreditCardSettings, Transaction, User
+from app.models import (
+    CadenceType,
+    CheckingAccount,
+    CreditCardSettings,
+    Kind,
+    OccurrenceStatus,
+    RecurringSeries,
+    Transaction,
+    User,
+)
 
 
 @pytest.fixture
@@ -158,3 +167,198 @@ def test_window_pagination_stitches_to_match_a_single_wide_fetch(client, app):
     stitched_rows = past["rows"] + future["rows"]
     assert stitched_rows == wide["rows"]
     assert len(wide["rows"]) == 6
+
+
+def test_update_requires_login(app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    anon_client = app.test_client()
+    response = anon_client.patch(f"/transactions/{txn_id}", json={"name": "New name"})
+    assert response.status_code == 302
+
+
+def test_update_one_off_transaction_fields(client, app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(
+        f"/transactions/{txn_id}",
+        json={
+            "name": "Rent (updated)",
+            "cash_amount": "-425.00",
+            "date": "2026-07-16",
+            "notes": "raised rent",
+        },
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["name"] == "Rent (updated)"
+    assert data["cash_amount"] == "-425.00"
+    assert data["date"] == "2026-07-16"
+    assert data["notes"] == "raised rent"
+    assert data["occurrence_status"] is None
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated.name == "Rent (updated)"
+        assert updated.cash_amount == Decimal("-425.00")
+        assert updated.date == dt.date(2026, 7, 16)
+
+
+def test_update_rejects_blank_name(client, app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(f"/transactions/{txn_id}", json={"name": "   "})
+    assert response.status_code == 400
+
+
+def test_update_rejects_malformed_amount(client, app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(f"/transactions/{txn_id}", json={"cash_amount": "not-a-number"})
+    assert response.status_code == 400
+
+
+def test_update_detaches_attached_series_occurrence(client, app):
+    with app.app_context():
+        series = RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=dt.date(2026, 7, 1),
+        )
+        db.session.add(series)
+        db.session.commit()
+
+        txn = Transaction(
+            name="Paycheck",
+            cash_amount=Decimal("500.00"),
+            date=dt.date(2026, 7, 1),
+            recurring_series_id=series.id,
+            occurrence_status=OccurrenceStatus.attached,
+        )
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(f"/transactions/{txn_id}", json={"cash_amount": "550.00"})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["occurrence_status"] == "detached"
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated.occurrence_status == OccurrenceStatus.detached
+
+
+def test_update_leaves_skipped_occurrence_status_untouched(client, app):
+    with app.app_context():
+        series = RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=dt.date(2026, 7, 1),
+        )
+        db.session.add(series)
+        db.session.commit()
+
+        txn = Transaction(
+            name="Paycheck",
+            cash_amount=Decimal("500.00"),
+            date=dt.date(2026, 7, 1),
+            recurring_series_id=series.id,
+            occurrence_status=OccurrenceStatus.skipped,
+        )
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(f"/transactions/{txn_id}", json={"notes": "note"})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["occurrence_status"] == "skipped"
+
+
+def test_delete_requires_login(app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    anon_client = app.test_client()
+    response = anon_client.delete(f"/transactions/{txn_id}")
+    assert response.status_code == 302
+
+
+def test_delete_one_off_transaction_hard_deletes(client, app):
+    with app.app_context():
+        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.delete(f"/transactions/{txn_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["deleted"] is True
+
+    with app.app_context():
+        assert Transaction.query.get(txn_id) is None
+
+
+def test_delete_attached_series_occurrence_detaches_instead_of_deleting(client, app):
+    with app.app_context():
+        series = RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=dt.date(2026, 7, 1),
+        )
+        db.session.add(series)
+        db.session.commit()
+
+        txn = Transaction(
+            name="Paycheck",
+            cash_amount=Decimal("500.00"),
+            date=dt.date(2026, 7, 1),
+            recurring_series_id=series.id,
+            occurrence_status=OccurrenceStatus.attached,
+        )
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.delete(f"/transactions/{txn_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["deleted"] is False
+    assert data["occurrence_status"] == "detached"
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated is not None
+        assert updated.occurrence_status == OccurrenceStatus.detached
+
+
+def test_delete_missing_transaction_returns_404(client):
+    response = client.delete("/transactions/999999")
+    assert response.status_code == 404

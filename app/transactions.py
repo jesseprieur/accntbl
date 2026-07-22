@@ -7,11 +7,13 @@ that doesn't start at the beginning of time still reports a correct running
 total. See specs.md's "Running total calculation" and "Main table view".
 """
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, jsonify, request
 
 from app.auth import login_required
-from app.models import CheckingAccount, CreditCardSettings, Transaction
+from app.extensions import db
+from app.models import CheckingAccount, CreditCardSettings, OccurrenceStatus, Transaction
 from app.services.running_total import compute_running_total
 
 transactions_bp = Blueprint("transactions", __name__, url_prefix="/transactions")
@@ -25,6 +27,15 @@ def _parse_date_param(value, field_label):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         raise ValueError(f"{field_label} must be a valid YYYY-MM-DD date.")
+
+
+def _parse_decimal_field(value, field_label):
+    if value is None or value == "":
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        raise ValueError(f"{field_label} must be a number.")
 
 
 @transactions_bp.route("/window", methods=["GET"])
@@ -94,3 +105,81 @@ def window():
     ]
 
     return jsonify({"start": start.isoformat(), "end": end.isoformat(), "rows": rows})
+
+
+@transactions_bp.route("/<int:transaction_id>", methods=["PATCH"])
+@login_required
+def update(transaction_id):
+    transaction = Transaction.query.get_or_404(transaction_id)
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        if "name" in payload:
+            name = (payload["name"] or "").strip()
+            if not name:
+                raise ValueError("Name is required.")
+            transaction.name = name
+
+        if "cash_amount" in payload:
+            transaction.cash_amount = _parse_decimal_field(
+                payload["cash_amount"], "Cash amount"
+            )
+
+        if "credit_amount" in payload:
+            transaction.credit_amount = _parse_decimal_field(
+                payload["credit_amount"], "Credit amount"
+            )
+
+        if "date" in payload:
+            transaction.date = _parse_date_param(payload["date"], "Date")
+
+        if "notes" in payload:
+            transaction.notes = payload["notes"] or None
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if (
+        transaction.recurring_series_id is not None
+        and transaction.occurrence_status == OccurrenceStatus.attached
+    ):
+        transaction.occurrence_status = OccurrenceStatus.detached
+
+    db.session.commit()
+
+    return jsonify(
+        {
+            "id": transaction.id,
+            "name": transaction.name,
+            "date": transaction.date.isoformat(),
+            "cash_amount": str(transaction.cash_amount) if transaction.cash_amount is not None else None,
+            "credit_amount": str(transaction.credit_amount) if transaction.credit_amount is not None else None,
+            "notes": transaction.notes,
+            "recurring_series_id": transaction.recurring_series_id,
+            "occurrence_status": (
+                transaction.occurrence_status.value
+                if transaction.occurrence_status
+                else None
+            ),
+        }
+    )
+
+
+@transactions_bp.route("/<int:transaction_id>", methods=["DELETE"])
+@login_required
+def delete(transaction_id):
+    transaction = Transaction.query.get_or_404(transaction_id)
+
+    if transaction.recurring_series_id is not None:
+        transaction.occurrence_status = OccurrenceStatus.detached
+        db.session.commit()
+        return jsonify(
+            {
+                "deleted": False,
+                "id": transaction.id,
+                "occurrence_status": transaction.occurrence_status.value,
+            }
+        )
+
+    db.session.delete(transaction)
+    db.session.commit()
+    return jsonify({"deleted": True, "id": transaction_id})

@@ -35,31 +35,122 @@
     return value ? Number(value).toFixed(2) : "";
   }
 
+  function escapeAttr(value) {
+    return String(value == null ? "" : value).replace(/"/g, "&quot;");
+  }
+
+  function editableCell(field, value, editable) {
+    if (!editable) {
+      return `<td>${value == null ? "" : value}</td>`;
+    }
+    return `<td><input type="text" class="form-control form-control-sm border-0" data-field="${field}" value="${escapeAttr(value)}"></td>`;
+  }
+
   function buildRow(row) {
     const tr = document.createElement("tr");
     tr.dataset.date = row.date;
+    tr.dataset.id = row.id == null ? "" : row.id;
     if (row.is_negative) {
       tr.classList.add("table-danger");
     }
     if (row.date === today) {
       tr.classList.add("table-primary");
     }
+    const editable = !row.is_virtual;
     tr.innerHTML = `
-      <td>${row.date}</td>
-      <td>${row.name}</td>
-      <td>${formatAmount(row.cash_amount)}</td>
-      <td>${formatAmount(row.credit_amount)}</td>
+      ${editableCell("date", row.date, editable)}
+      ${editableCell("name", row.name, editable)}
+      ${editableCell("cash_amount", formatAmount(row.cash_amount), editable)}
+      ${editableCell("credit_amount", formatAmount(row.credit_amount), editable)}
       <td>${formatAmount(row.running_total)}</td>
-      <td>${row.notes || ""}</td>
+      ${editableCell("notes", row.notes || "", editable)}
+      <td>${editable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}</td>
     `;
     return tr;
+  }
+
+  function saveField(tr, field, input) {
+    const id = tr.dataset.id;
+    if (!id) return;
+    const value = input.value.trim();
+    const body = {};
+    if (field === "cash_amount" || field === "credit_amount") {
+      body[field] = value === "" ? null : value;
+    } else {
+      body[field] = value;
+    }
+
+    fetch(`/transactions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(data.error || "Failed to save change.");
+          return;
+        }
+        reloadLoadedWindow();
+      });
+  }
+
+  tbody.addEventListener(
+    "blur",
+    (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement) || !input.dataset.field) return;
+      const tr = input.closest("tr");
+      if (!tr) return;
+      saveField(tr, input.dataset.field, input);
+    },
+    true
+  );
+
+  tbody.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+      event.target.blur();
+    }
+  });
+
+  function deleteRow(tr) {
+    const id = tr.dataset.id;
+    if (!id) return;
+    if (!window.confirm("Delete this transaction?")) return;
+
+    fetch(`/transactions/${id}`, { method: "DELETE" })
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(data.error || "Failed to delete transaction.");
+          return;
+        }
+        reloadLoadedWindow();
+      });
+  }
+
+  tbody.addEventListener("click", (event) => {
+    const button = event.target.closest('[data-action="delete"]');
+    if (!button) return;
+    const tr = button.closest("tr");
+    if (!tr) return;
+    deleteRow(tr);
+  });
+
+  function reloadLoadedWindow() {
+    if (earliestLoaded === null || latestLoaded === null) return;
+    const scrollTop = container.scrollTop;
+    fetchWindow(earliestLoaded, latestLoaded).then((data) => {
+      renderInitialRows(data.rows);
+      container.scrollTop = scrollTop;
+    });
   }
 
   function renderInitialRows(rows) {
     tbody.innerHTML = "";
 
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No transactions in this window.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No transactions in this window.</td></tr>';
       return;
     }
 
