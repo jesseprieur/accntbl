@@ -66,7 +66,7 @@ design rationale before implementing any item below.
 - [x] Add one-off transaction (modal/form)
 - [x] Add recurring series (modal/form: name, kind, amount, cadence, start
       date, optional end date)
-- [ ] Edit recurring series (propagates to `occurrence_status = attached`
+- [x] Edit recurring series (propagates to `occurrence_status = attached`
       occurrences only)
 
 ## 7. Polish / validation

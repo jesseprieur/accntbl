@@ -766,3 +766,143 @@ def test_create_series_appears_in_window_with_running_total(client, app):
     assert data["rows"][0]["recurring_series_id"] is not None
     assert data["rows"][0]["occurrence_status"] == "attached"
     assert data["rows"][0]["running_total"] == "1500.00"
+
+
+def test_update_series_regenerates_attached_occurrences(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={"amount": "1600.00", "end_date": "2026-08-01"},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["amount"] == "1600.00"
+    assert data["end_date"] == "2026-08-01"
+    assert data["occurrences_created"] == 2
+
+    with app.app_context():
+        occurrences = Transaction.query.filter_by(recurring_series_id=series_id).order_by(
+            Transaction.date
+        ).all()
+        assert [t.date for t in occurrences] == [dt.date(2026, 7, 1), dt.date(2026, 8, 1)]
+        for occurrence in occurrences:
+            assert occurrence.cash_amount == Decimal("1600.00")
+            assert occurrence.occurrence_status == OccurrenceStatus.attached
+
+
+def test_update_series_preserves_detached_and_skipped_occurrences(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    with app.app_context():
+        occurrences = Transaction.query.filter_by(recurring_series_id=series_id).order_by(
+            Transaction.date
+        ).all()
+        detached_id = occurrences[0].id
+        skipped_id = occurrences[1].id
+
+    client.patch(f"/transactions/{detached_id}", json={"name": "Custom paycheck"})
+    client.post(f"/transactions/{skipped_id}/skip")
+
+    response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={"amount": "1700.00"},
+    )
+    assert response.status_code == 200
+
+    with app.app_context():
+        detached = Transaction.query.get(detached_id)
+        skipped = Transaction.query.get(skipped_id)
+        assert detached.occurrence_status == OccurrenceStatus.detached
+        assert detached.name == "Custom paycheck"
+        assert detached.cash_amount == Decimal("1500.00")
+        assert skipped.occurrence_status == OccurrenceStatus.skipped
+        assert skipped.cash_amount == Decimal("1500.00")
+
+        attached = Transaction.query.filter_by(
+            recurring_series_id=series_id, occurrence_status=OccurrenceStatus.attached
+        ).all()
+        assert len(attached) == 3
+        assert all(t.cash_amount == Decimal("1700.00") for t in attached)
+
+
+def test_update_series_rejects_end_date_before_start_date(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={"end_date": "2026-01-01"},
+    )
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+    with app.app_context():
+        series = RecurringSeries.query.get(series_id)
+        assert series.end_date is None
+
+
+def test_update_series_switching_to_custom_cadence_requires_interval(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Rent",
+            "kind": "cash",
+            "amount": "-1200.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    bad_response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={"cadence_type": "custom"},
+    )
+    assert bad_response.status_code == 400
+
+    response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={
+            "cadence_type": "custom",
+            "custom_interval_value": 10,
+            "custom_interval_unit": "days",
+        },
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["cadence_type"] == "custom"
+    assert data["custom_interval_value"] == 10
+    assert data["custom_interval_unit"] == "days"

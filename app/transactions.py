@@ -298,6 +298,120 @@ def create_series():
     ), 201
 
 
+@transactions_bp.route("/series/<int:series_id>", methods=["PATCH"])
+@login_required
+def update_series(series_id):
+    series = RecurringSeries.query.get_or_404(series_id)
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        if "name" in payload:
+            name = (payload["name"] or "").strip()
+            if not name:
+                raise ValueError("Name is required.")
+            series.name = name
+
+        if "kind" in payload:
+            series.kind = _parse_enum_field(Kind, payload["kind"], "Kind")
+
+        if "amount" in payload:
+            amount = _parse_decimal_field(payload["amount"], "Amount")
+            if amount is None:
+                raise ValueError("Amount is required.")
+            series.amount = amount
+
+        if "cadence_type" in payload:
+            series.cadence_type = _parse_enum_field(
+                CadenceType, payload["cadence_type"], "Cadence"
+            )
+
+        if series.cadence_type == CadenceType.custom:
+            custom_interval_value = payload.get(
+                "custom_interval_value", series.custom_interval_value
+            )
+            try:
+                custom_interval_value = int(custom_interval_value)
+                if custom_interval_value <= 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "Custom interval value is required and must be a positive integer."
+                )
+            series.custom_interval_value = custom_interval_value
+            series.custom_interval_unit = _parse_enum_field(
+                CustomIntervalUnit,
+                payload.get("custom_interval_unit", series.custom_interval_unit),
+                "Custom interval unit",
+            )
+        else:
+            series.custom_interval_value = None
+            series.custom_interval_unit = None
+
+        if "start_date" in payload:
+            if not payload["start_date"]:
+                raise ValueError("Start date is required.")
+            series.start_date = _parse_date_param(payload["start_date"], "Start date")
+
+        if "end_date" in payload:
+            series.end_date = (
+                _parse_date_param(payload["end_date"], "End date")
+                if payload["end_date"]
+                else None
+            )
+
+        if series.end_date is not None and series.end_date < series.start_date:
+            raise ValueError("End date must not be before start date.")
+
+        if "notes" in payload:
+            series.notes = payload["notes"] or None
+    except ValueError as exc:
+        db.session.rollback()
+        return jsonify({"error": str(exc)}), 400
+
+    Transaction.query.filter_by(
+        recurring_series_id=series.id, occurrence_status=OccurrenceStatus.attached
+    ).delete(synchronize_session=False)
+
+    horizon = date.today() + timedelta(days=_MATERIALIZE_FUTURE_DAYS)
+    range_end = min(series.end_date, horizon) if series.end_date is not None else horizon
+    occurrence_dates = generate_occurrences(series, series.start_date, range_end)
+
+    for occurrence_date in occurrence_dates:
+        db.session.add(
+            Transaction(
+                name=series.name,
+                cash_amount=series.amount if series.kind == Kind.cash else None,
+                credit_amount=series.amount if series.kind == Kind.credit else None,
+                date=occurrence_date,
+                notes=series.notes,
+                recurring_series_id=series.id,
+                occurrence_status=OccurrenceStatus.attached,
+            )
+        )
+
+    db.session.commit()
+
+    return jsonify(
+        {
+            "id": series.id,
+            "name": series.name,
+            "kind": series.kind.value,
+            "amount": str(series.amount),
+            "cadence_type": series.cadence_type.value,
+            "custom_interval_value": series.custom_interval_value,
+            "custom_interval_unit": (
+                series.custom_interval_unit.value
+                if series.custom_interval_unit
+                else None
+            ),
+            "start_date": series.start_date.isoformat(),
+            "end_date": series.end_date.isoformat() if series.end_date else None,
+            "notes": series.notes,
+            "occurrences_created": len(occurrence_dates),
+        }
+    )
+
+
 @transactions_bp.route("/<int:transaction_id>", methods=["PATCH"])
 @login_required
 def update(transaction_id):
