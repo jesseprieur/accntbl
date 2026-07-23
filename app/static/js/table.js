@@ -509,4 +509,52 @@
         });
     });
   }
+
+  const deleteSeriesModalEl = document.getElementById("delete-series-modal");
+  const deleteSeriesSelect = document.getElementById("delete-series-select");
+  const deleteSeriesError = document.getElementById("delete-series-error");
+  const deleteSeriesConfirmBtn = document.getElementById("delete-series-confirm-btn");
+
+  if (deleteSeriesModalEl && deleteSeriesSelect && deleteSeriesConfirmBtn) {
+    deleteSeriesModalEl.addEventListener("show.bs.modal", () => {
+      deleteSeriesError.classList.add("d-none");
+      deleteSeriesSelect.innerHTML = '<option value="">Loading…</option>';
+      fetch("/transactions/series")
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.series.length === 0) {
+            deleteSeriesSelect.innerHTML = '<option value="">No recurring series</option>';
+            return;
+          }
+          deleteSeriesSelect.innerHTML = data.series
+            .map((s) => `<option value="${s.id}">${s.name}</option>`)
+            .join("");
+        });
+    });
+
+    deleteSeriesConfirmBtn.addEventListener("click", () => {
+      const seriesId = deleteSeriesSelect.value;
+      if (!seriesId) return;
+      const seriesName = deleteSeriesSelect.options[deleteSeriesSelect.selectedIndex].textContent;
+      if (!window.confirm(`Permanently delete the recurring series "${seriesName}" and all of its attached occurrences?`)) {
+        return;
+      }
+
+      fetch(`/transactions/series/${seriesId}`, { method: "DELETE" })
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            deleteSeriesError.textContent = data.error || "Failed to delete recurring series.";
+            deleteSeriesError.classList.remove("d-none");
+            return;
+          }
+          deleteSeriesError.classList.add("d-none");
+          const modal = window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(deleteSeriesModalEl)
+            : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        });
+    });
+  }
 })();

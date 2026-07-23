@@ -298,6 +298,15 @@ def create_series():
     ), 201
 
 
+@transactions_bp.route("/series", methods=["GET"])
+@login_required
+def list_series():
+    series = RecurringSeries.query.order_by(RecurringSeries.name).all()
+    return jsonify(
+        {"series": [{"id": s.id, "name": s.name} for s in series]}
+    )
+
+
 @transactions_bp.route("/series/<int:series_id>", methods=["GET"])
 @login_required
 def get_series(series_id):
@@ -435,6 +444,30 @@ def update_series(series_id):
             "occurrences_created": len(occurrence_dates),
         }
     )
+
+
+@transactions_bp.route("/series/<int:series_id>", methods=["DELETE"])
+@login_required
+def delete_series(series_id):
+    series = RecurringSeries.query.get_or_404(series_id)
+
+    Transaction.query.filter_by(recurring_series_id=series.id).filter(
+        Transaction.occurrence_status.in_(
+            [OccurrenceStatus.attached, OccurrenceStatus.skipped]
+        )
+    ).delete(synchronize_session=False)
+
+    Transaction.query.filter_by(
+        recurring_series_id=series.id, occurrence_status=OccurrenceStatus.detached
+    ).update(
+        {"recurring_series_id": None, "occurrence_status": None},
+        synchronize_session=False,
+    )
+
+    db.session.delete(series)
+    db.session.commit()
+
+    return jsonify({"deleted": True, "id": series_id})
 
 
 @transactions_bp.route("/<int:transaction_id>", methods=["PATCH"])

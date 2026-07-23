@@ -948,6 +948,124 @@ def test_update_series_rejects_end_date_before_start_date(client, app):
         assert series.end_date is None
 
 
+def test_list_series_returns_all_series(client, app):
+    client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    client.post(
+        "/transactions/series",
+        json={
+            "name": "Gym membership",
+            "kind": "cash",
+            "amount": "-50.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+
+    response = client.get("/transactions/series")
+    assert response.status_code == 200
+    names = [s["name"] for s in response.get_json()["series"]]
+    assert names == ["Gym membership", "Paycheck"]
+
+
+def test_delete_series_requires_login(app):
+    with app.app_context():
+        series = RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=dt.date(2026, 7, 1),
+        )
+        db.session.add(series)
+        db.session.commit()
+        series_id = series.id
+
+    anon_client = app.test_client()
+    response = anon_client.delete(f"/transactions/series/{series_id}")
+    assert response.status_code == 302
+
+
+def test_delete_series_missing_returns_404(client):
+    response = client.delete("/transactions/series/999999")
+    assert response.status_code == 404
+
+
+def test_delete_series_removes_series_and_hard_deletes_attached_and_skipped_occurrences(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    with app.app_context():
+        occurrences = Transaction.query.filter_by(recurring_series_id=series_id).order_by(
+            Transaction.date
+        ).all()
+        skipped_id = occurrences[1].id
+
+    client.post(f"/transactions/{skipped_id}/skip")
+
+    response = client.delete(f"/transactions/series/{series_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["deleted"] is True
+    assert data["id"] == series_id
+
+    with app.app_context():
+        assert RecurringSeries.query.get(series_id) is None
+        assert Transaction.query.filter_by(recurring_series_id=series_id).count() == 0
+
+
+def test_delete_series_preserves_detached_occurrences_as_standalone_transactions(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    with app.app_context():
+        occurrences = Transaction.query.filter_by(recurring_series_id=series_id).order_by(
+            Transaction.date
+        ).all()
+        detached_id = occurrences[0].id
+
+    client.patch(f"/transactions/{detached_id}", json={"name": "Custom paycheck"})
+
+    response = client.delete(f"/transactions/series/{series_id}")
+    assert response.status_code == 200
+
+    with app.app_context():
+        assert RecurringSeries.query.get(series_id) is None
+        detached = Transaction.query.get(detached_id)
+        assert detached is not None
+        assert detached.recurring_series_id is None
+        assert detached.occurrence_status is None
+        assert detached.name == "Custom paycheck"
+
+
 def test_update_series_switching_to_custom_cadence_requires_interval(client, app):
     create_response = client.post(
         "/transactions/series",

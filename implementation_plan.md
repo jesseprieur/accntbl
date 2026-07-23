@@ -68,7 +68,7 @@ design rationale before implementing any item below.
 - [x] Add recurring series (modal/form: name, kind, amount, cadence, start
       date, optional end date)
 - [x] Edit recurring series
-- [ ] Delete recurring series: confirmation modal at top of main table page
+- [x] Delete recurring series: confirmation modal at top of main table page
       (separate entry point from per-row delete)
 
 ## 7. Polish / validation
