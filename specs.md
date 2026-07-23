@@ -210,12 +210,12 @@ password, Flask session-based auth). No self-registration UI needed for v1
 
 - Backend: Python, Flask
 - ORM/migrations: SQLAlchemy + Alembic
-- DB: MySQL
+- DB: SQLite (single file on a persistent volume)
 - Frontend: Bootstrap + vanilla JS/Ajax (no heavy JS framework — keep simple)
-- Local/dev: Docker Compose (flask app container + mysql container)
-- Future deployment targets (not designed for yet, just kept in mind so we
-  don't paint ourselves into a corner): AWS Lambda + S3, or GCP Cloud Run +
-  GCS. No serverless-specific code/abstractions until we actually get there.
+- Local/dev: Docker Compose (flask app container, SQLite file in a named volume)
+- Deployment target: single small container (e.g. Fly.io) with a persistent
+  volume for the SQLite file — chosen for low-cost, low-traffic single-user
+  hosting without a separate managed database service.
 
 ## Open questions / deferred decisions
 

@@ -7,16 +7,7 @@ class Config:
 
     @property
     def SQLALCHEMY_DATABASE_URI(self):
-        return os.environ.get(
-            "DATABASE_URL",
-            "mysql+pymysql://{user}:{password}@{host}:{port}/{name}".format(
-                user=os.environ.get("DB_USER", "accntbl"),
-                password=os.environ.get("DB_PASSWORD", "accntbl"),
-                host=os.environ.get("DB_HOST", "db"),
-                port=os.environ.get("DB_PORT", "3306"),
-                name=os.environ.get("DB_NAME", "accntbl"),
-            ),
-        )
+        return os.environ.get("DATABASE_URL", "sqlite:////data/accntbl.db")
 
 
 class DevelopmentConfig(Config):

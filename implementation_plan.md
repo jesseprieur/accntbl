@@ -9,6 +9,10 @@ design rationale before implementing any item below.
 - [x] Flask app factory + config (dev/test/prod via env vars)
 - [x] SQLAlchemy setup + Alembic init
 - [x] `.env.example` with DB creds, Flask secret key
+- [x] Migrated DB from MySQL to SQLite (single-file, persistent volume) for
+  cheap single-container hosting; dropped the `db` compose service and
+  PyMySQL/cryptography deps, added `render_as_batch` to Alembic env for
+  future SQLite-safe migrations
 
 ## 1. Data model
 - [x] `users` model + seed script/CLI command to create the single user

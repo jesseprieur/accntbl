@@ -46,16 +46,18 @@ close date, which *does* hit your checking balance on its due date.
 ## Architecture
 
 - **Backend**: Python + Flask
-- **Database**: MySQL, accessed via SQLAlchemy, schema managed with Alembic
+- **Database**: SQLite (single file on a persistent volume), accessed via
+  SQLAlchemy, schema managed with Alembic
 - **Frontend**: server-rendered pages styled with Bootstrap, Ajax (fetch)
   for inline row editing and infinite scroll through the transaction table
 - **Auth**: simple single-user login (username/password stored, hashed, in
   the database)
-- **Local development**: Docker Compose brings up the Flask app and a MySQL
-  container together
-- **Future deployment** (not built yet): AWS Lambda + S3, or GCP Cloud Run +
-  Cloud Storage, as lower-cost/low-traffic hosting options once the app is
-  further along
+- **Local development**: Docker Compose brings up the Flask app container,
+  with the SQLite file persisted in a named volume
+- **Future deployment** (not built yet): a single small container (e.g. Fly.io
+  or a low-cost VPS) with a persistent volume for the SQLite file — chosen
+  over a managed MySQL/Postgres instance to keep hosting costs near-zero for
+  this single-user app
 
 See `specs.md` for full design details and rationale, and
 `implementation_plan.md` for build progress.
