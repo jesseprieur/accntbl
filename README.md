@@ -103,10 +103,8 @@ page at `/settings`.)
 2. Visit **Settings** to set up your checking account(s) starting balance
    and the credit card's statement close day / payment due offset.
 3. On the main table, add one-off transactions or recurring series (name,
-   kind, amount, cadence, start date, optional end date). Clicking edit on a
-   row still tied to a series opens the series edit form and updates every
-   occurrence still attached to it; detach a row first if you want to edit
-   just that one occurrence.
+   kind, amount, cadence, start date, optional end date). See "Key ideas"
+   above for how editing/detaching a recurring row works.
 4. Scroll down to project up to a year forward; scroll up to review history.
 5. Watch for highlighted rows — that's when your projected balance goes
    negative.

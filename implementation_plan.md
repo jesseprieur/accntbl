@@ -55,33 +55,20 @@ design rationale before implementing any item below.
 - [x] Negative running-total rows visually highlighted
 
 ## 6. Row editing
-- [x] Fix edit row button: state-dependent behavior — `attached` occurrence
-      → clicking edit opens the edit recurring series form (pre-filled),
-      saving updates the series and propagates to all `attached` occurrences
-      (there's currently no UI path to edit a series other than this);
-      `detached` occurrence or plain one-off → inline edit (name,
-      cash_amount, credit_amount, date, notes) via Ajax PATCH, affecting only
-      that row (unchanged from today)
-- [ ] Fix delete/detach row button: state-dependent behavior + label —
-      `attached` occurrence → "Detach" button, sets `occurrence_status =
-      detached` on the same row (no hard delete, no new row created);
-      `detached` occurrence or plain one-off → "Delete" button, hard-deletes
-      the row (currently the same "Delete" button/action handles both cases
-      and never actually hard-deletes an already-detached row)
+(state-dependent edit/detach/delete/skip semantics: see specs.md §
+"Recurring series editing semantics")
+- [x] Edit row button: state-dependent (edit series form vs. inline PATCH)
+- [ ] Delete/detach row button: state-dependent behavior + label (currently
+      one "Delete" button/action handles both cases and never hard-deletes
+      an already-detached row)
 - [x] "Skip this occurrence" action for recurring rows
-      (`occurrence_status = skipped`)
-- [x] "Un-skip" action for recurring rows (`occurrence_status = skipped` →
-      `attached`; no "un-detach" equivalent yet)
+- [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form)
 - [x] Add recurring series (modal/form: name, kind, amount, cadence, start
       date, optional end date)
-- [x] Edit recurring series (propagates to `occurrence_status = attached`
-      occurrences only)
-- [ ] Delete recurring series: "Delete recurring series" button at top of
-      main table page (separate from per-row delete) opens a modal —
-      dropdown of existing series, Delete button, confirmation prompt, then
-      deletes the series row + hard-deletes its `attached`/`skipped`
-      occurrences, nulling `recurring_series_id` on any `detached` ones
+- [x] Edit recurring series
+- [ ] Delete recurring series: confirmation modal at top of main table page
+      (separate entry point from per-row delete)
 
 ## 7. Polish / validation
 - [ ] Form validation (dates, numeric amounts, required fields)
