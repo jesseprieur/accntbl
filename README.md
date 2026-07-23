@@ -39,6 +39,9 @@ close date, which *does* hit your checking balance on its due date.
   — no manual entry of the payment amount each month.
 - **History**: past transactions stay visible (scroll up) — this isn't just
   a forward-looking projection, it's a running ledger.
+- **Month-end markers**: a virtual row is inserted at the end of every month,
+  bolded/italicized and shaded, showing that month's closing balance and the
+  change versus the previous month's close.
 
 ## Architecture
 

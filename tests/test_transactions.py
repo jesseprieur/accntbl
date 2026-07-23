@@ -51,7 +51,7 @@ def test_window_defaults_to_range_around_today(client):
     data = response.get_json()
     assert data["start"] == (dt.date.today() - dt.timedelta(days=30)).isoformat()
     assert data["end"] == (dt.date.today() + dt.timedelta(days=90)).isoformat()
-    assert data["rows"] == []
+    assert [row for row in data["rows"] if not row["is_month_end"]] == []
 
 
 def test_window_rejects_start_after_end(client):
@@ -90,10 +90,11 @@ def test_window_returns_rows_within_range_with_running_total(client, app):
     assert response.status_code == 200
     data = response.get_json()
 
-    names = [row["name"] for row in data["rows"]]
+    non_month_end_rows = [row for row in data["rows"] if not row["is_month_end"]]
+    names = [row["name"] for row in non_month_end_rows]
     assert names == ["Paycheck", "Rent"]
 
-    paycheck, rent = data["rows"]
+    paycheck, rent = non_month_end_rows
     assert paycheck["running_total"] == "550.00"
     assert paycheck["is_negative"] is False
     assert rent["running_total"] == "150.00"
@@ -124,12 +125,39 @@ def test_window_includes_virtual_credit_card_payment_rows(client, app):
     )
     data = response.get_json()
 
-    virtual_rows = [row for row in data["rows"] if row["is_virtual"]]
+    virtual_rows = [
+        row for row in data["rows"] if row["is_virtual"] and not row["is_month_end"]
+    ]
     assert len(virtual_rows) == 1
     assert virtual_rows[0]["name"] == "Default Credit Card Payment"
     assert virtual_rows[0]["date"] == "2026-07-25"
     assert virtual_rows[0]["cash_amount"] == "-75.00"
     assert virtual_rows[0]["id"] is None
+
+
+def test_window_includes_month_end_virtual_row(client, app):
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("100.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        db.session.add(Transaction(
+            name="Paycheck", cash_amount=Decimal("500.00"), date=dt.date(2026, 7, 10)
+        ))
+        db.session.commit()
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    data = response.get_json()
+
+    month_end_rows = [row for row in data["rows"] if row["is_month_end"]]
+    assert len(month_end_rows) == 1
+    row = month_end_rows[0]
+    assert row["date"] == "2026-07-31"
+    assert row["id"] is None
+    assert row["is_virtual"] is True
+    assert row["running_total"] == "600.00"
 
 
 def test_window_pagination_stitches_to_match_a_single_wide_fetch(client, app):
@@ -166,7 +194,8 @@ def test_window_pagination_stitches_to_match_a_single_wide_fetch(client, app):
 
     stitched_rows = past["rows"] + future["rows"]
     assert stitched_rows == wide["rows"]
-    assert len(wide["rows"]) == 6
+    # 6 real transactions + 1 "Month end" virtual row for July 31.
+    assert len(wide["rows"]) == 7
 
 
 def test_update_requires_login(app):
@@ -466,7 +495,7 @@ def test_skip_removes_row_from_window_and_running_total(client, app):
         query_string={"start": "2026-07-01", "end": "2026-07-31"},
     )
     data = response.get_json()
-    assert data["rows"] == []
+    assert [row for row in data["rows"] if not row["is_month_end"]] == []
 
 
 def test_window_include_skipped_returns_skipped_row_without_running_total(client, app):
@@ -484,8 +513,9 @@ def test_window_include_skipped_returns_skipped_row_without_running_total(client
         query_string={"start": "2026-07-01", "end": "2026-07-31", "include_skipped": "1"},
     )
     data = response.get_json()
-    assert len(data["rows"]) == 1
-    row = data["rows"][0]
+    non_month_end_rows = [row for row in data["rows"] if not row["is_month_end"]]
+    assert len(non_month_end_rows) == 1
+    row = non_month_end_rows[0]
     assert row["id"] == txn_id
     assert row["occurrence_status"] == "skipped"
     assert row["running_total"] is None
@@ -576,9 +606,10 @@ def test_create_appears_in_window_with_running_total(client, app):
         query_string={"start": "2026-07-01", "end": "2026-07-31"},
     )
     data = response.get_json()
-    assert len(data["rows"]) == 1
-    assert data["rows"][0]["name"] == "Rent"
-    assert data["rows"][0]["running_total"] == "600.00"
+    non_month_end_rows = [row for row in data["rows"] if not row["is_month_end"]]
+    assert len(non_month_end_rows) == 1
+    assert non_month_end_rows[0]["name"] == "Rent"
+    assert non_month_end_rows[0]["running_total"] == "600.00"
 
 
 def test_create_requires_name(client):
@@ -793,11 +824,12 @@ def test_create_series_appears_in_window_with_running_total(client, app):
         query_string={"start": "2026-07-01", "end": "2026-07-31"},
     )
     data = response.get_json()
-    assert len(data["rows"]) == 1
-    assert data["rows"][0]["name"] == "Paycheck"
-    assert data["rows"][0]["recurring_series_id"] is not None
-    assert data["rows"][0]["occurrence_status"] == "attached"
-    assert data["rows"][0]["running_total"] == "1500.00"
+    non_month_end_rows = [row for row in data["rows"] if not row["is_month_end"]]
+    assert len(non_month_end_rows) == 1
+    assert non_month_end_rows[0]["name"] == "Paycheck"
+    assert non_month_end_rows[0]["recurring_series_id"] is not None
+    assert non_month_end_rows[0]["occurrence_status"] == "attached"
+    assert non_month_end_rows[0]["running_total"] == "1500.00"
 
 
 def test_get_series_requires_login(app):

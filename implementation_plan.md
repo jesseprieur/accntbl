@@ -53,7 +53,7 @@ design rationale before implementing any item below.
 - [x] Ajax infinite scroll: fetch more future rows on scroll down (up to
       1 year out), fetch more past rows on scroll up
 - [x] Negative running-total rows visually highlighted
-- [ ] Add month end virtual rows, highlighted in light grey and/or with some font adjustment (bold, italics, or something else) denoting current balance, as well as difference between end of this month and the end of the previous month
+- [x] Add month end virtual rows, highlighted in light grey and/or with some font adjustment (bold, italics, or something else) denoting current balance, as well as difference between end of this month and the end of the previous month
 
 ## 6. Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §

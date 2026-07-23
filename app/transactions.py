@@ -120,6 +120,12 @@ def window():
             "running_total": str(row.running_total),
             "is_negative": row.is_negative,
             "is_virtual": row.transaction is None,
+            "is_month_end": row.is_month_end,
+            "month_over_month_change": (
+                str(row.month_over_month_change)
+                if row.month_over_month_change is not None
+                else None
+            ),
         }
         for row in ledger
         if start <= row.date <= end
@@ -139,6 +145,8 @@ def window():
                 "running_total": None,
                 "is_negative": False,
                 "is_virtual": False,
+                "is_month_end": False,
+                "month_over_month_change": None,
             }
             for t in history
             if t.occurrence_status == OccurrenceStatus.skipped and start <= t.date <= end
