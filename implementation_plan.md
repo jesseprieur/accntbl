@@ -55,7 +55,7 @@ design rationale before implementing any item below.
 - [x] Negative running-total rows visually highlighted
 
 ## 6. Row editing
-- [ ] Fix edit row button: state-dependent behavior — `attached` occurrence
+- [x] Fix edit row button: state-dependent behavior — `attached` occurrence
       → clicking edit opens the edit recurring series form (pre-filled),
       saving updates the series and propagates to all `attached` occurrences
       (there's currently no UI path to edit a series other than this);

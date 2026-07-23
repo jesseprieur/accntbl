@@ -58,11 +58,15 @@
       tr.classList.add("table-primary");
     }
     const isSkipped = row.occurrence_status === "skipped";
-    const editable = !row.is_virtual && !isSkipped;
-    const skippable = editable && row.recurring_series_id != null;
+    const isAttached = row.occurrence_status === "attached";
+    const editable = !row.is_virtual && !isSkipped && !isAttached;
+    const skippable = !row.is_virtual && !isSkipped && row.recurring_series_id != null;
     const unskippable = !row.is_virtual && row.recurring_series_id != null && isSkipped;
     if (isSkipped) {
       tr.classList.add("text-muted");
+    }
+    if (isAttached) {
+      tr.dataset.seriesId = row.recurring_series_id;
     }
     tr.innerHTML = `
       ${editableCell("date", row.date, editable)}
@@ -72,6 +76,7 @@
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
       ${editableCell("notes", row.notes || "", editable)}
       <td>
+        ${isAttached ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit-series">Edit</button>' : ""}
         ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip">Skip</button>' : ""}
         ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip">Un-skip</button>' : ""}
         ${!row.is_virtual ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
@@ -190,6 +195,13 @@
     if (unskipButton) {
       const tr = unskipButton.closest("tr");
       if (tr) unskipRow(tr);
+      return;
+    }
+
+    const editSeriesButton = event.target.closest('[data-action="edit-series"]');
+    if (editSeriesButton) {
+      const tr = editSeriesButton.closest("tr");
+      if (tr && tr.dataset.seriesId) openEditSeriesModal(tr.dataset.seriesId);
     }
   });
 
@@ -407,6 +419,87 @@
           toggleSeriesCustomFields();
           const modal = window.bootstrap
             ? window.bootstrap.Modal.getOrCreateInstance(addSeriesModalEl)
+            : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        });
+    });
+  }
+
+  const editSeriesForm = document.getElementById("edit-series-form");
+  const editSeriesModalEl = document.getElementById("edit-series-modal");
+  const editSeriesCadenceSelect = document.getElementById("edit-series-cadence");
+  const editSeriesCustomFields = document.getElementById("edit-series-custom-fields");
+
+  function toggleEditSeriesCustomFields() {
+    if (editSeriesCadenceSelect && editSeriesCustomFields) {
+      editSeriesCustomFields.classList.toggle("d-none", editSeriesCadenceSelect.value !== "custom");
+    }
+  }
+  if (editSeriesCadenceSelect) {
+    editSeriesCadenceSelect.addEventListener("change", toggleEditSeriesCustomFields);
+  }
+
+  function openEditSeriesModal(seriesId) {
+    if (!editSeriesForm || !editSeriesModalEl) return;
+    fetch(`/transactions/series/${seriesId}`)
+      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          alert(data.error || "Failed to load recurring series.");
+          return;
+        }
+        editSeriesForm.elements["series_id"].value = data.id;
+        editSeriesForm.elements["name"].value = data.name;
+        editSeriesForm.elements["kind"].value = data.kind;
+        editSeriesForm.elements["amount"].value = data.amount;
+        editSeriesForm.elements["cadence_type"].value = data.cadence_type;
+        editSeriesForm.elements["custom_interval_value"].value = data.custom_interval_value || "";
+        editSeriesForm.elements["custom_interval_unit"].value = data.custom_interval_unit || "days";
+        editSeriesForm.elements["start_date"].value = data.start_date;
+        editSeriesForm.elements["end_date"].value = data.end_date || "";
+        editSeriesForm.elements["notes"].value = data.notes || "";
+        toggleEditSeriesCustomFields();
+        document.getElementById("edit-series-error").classList.add("d-none");
+        const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl) : null;
+        if (modal) modal.show();
+      });
+  }
+
+  if (editSeriesForm) {
+    const editSeriesError = document.getElementById("edit-series-error");
+
+    editSeriesForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(editSeriesForm);
+      const seriesId = formData.get("series_id");
+      const body = {
+        name: formData.get("name"),
+        kind: formData.get("kind"),
+        amount: formData.get("amount"),
+        cadence_type: formData.get("cadence_type"),
+        custom_interval_value: formData.get("custom_interval_value") || null,
+        custom_interval_unit: formData.get("custom_interval_unit") || null,
+        start_date: formData.get("start_date"),
+        end_date: formData.get("end_date") || null,
+        notes: formData.get("notes") || null,
+      };
+
+      fetch(`/transactions/series/${seriesId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            editSeriesError.textContent = data.error || "Failed to update recurring series.";
+            editSeriesError.classList.remove("d-none");
+            return;
+          }
+          editSeriesError.classList.add("d-none");
+          const modal = window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl)
             : null;
           if (modal) modal.hide();
           reloadLoadedWindow();

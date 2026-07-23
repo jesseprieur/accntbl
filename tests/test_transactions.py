@@ -768,6 +768,49 @@ def test_create_series_appears_in_window_with_running_total(client, app):
     assert data["rows"][0]["running_total"] == "1500.00"
 
 
+def test_get_series_requires_login(app):
+    with app.test_client() as client:
+        response = client.get("/transactions/series/1")
+        assert response.status_code == 302
+
+
+def test_get_series_returns_series_fields(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-09-01",
+            "notes": "biweekly job",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    response = client.get(f"/transactions/series/{series_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data == {
+        "id": series_id,
+        "name": "Paycheck",
+        "kind": "cash",
+        "amount": "1500.00",
+        "cadence_type": "monthly",
+        "custom_interval_value": None,
+        "custom_interval_unit": None,
+        "start_date": "2026-07-01",
+        "end_date": "2026-09-01",
+        "notes": "biweekly job",
+    }
+
+
+def test_get_series_missing_returns_404(client):
+    response = client.get("/transactions/series/999999")
+    assert response.status_code == 404
+
+
 def test_update_series_regenerates_attached_occurrences(client, app):
     create_response = client.post(
         "/transactions/series",

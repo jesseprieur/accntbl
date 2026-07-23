@@ -298,6 +298,31 @@ def create_series():
     ), 201
 
 
+@transactions_bp.route("/series/<int:series_id>", methods=["GET"])
+@login_required
+def get_series(series_id):
+    series = RecurringSeries.query.get_or_404(series_id)
+
+    return jsonify(
+        {
+            "id": series.id,
+            "name": series.name,
+            "kind": series.kind.value,
+            "amount": str(series.amount),
+            "cadence_type": series.cadence_type.value,
+            "custom_interval_value": series.custom_interval_value,
+            "custom_interval_unit": (
+                series.custom_interval_unit.value
+                if series.custom_interval_unit
+                else None
+            ),
+            "start_date": series.start_date.isoformat(),
+            "end_date": series.end_date.isoformat() if series.end_date else None,
+            "notes": series.notes,
+        }
+    )
+
+
 @transactions_bp.route("/series/<int:series_id>", methods=["PATCH"])
 @login_required
 def update_series(series_id):
