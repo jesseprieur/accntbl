@@ -84,10 +84,24 @@ def test_semi_monthly_produces_two_per_month():
     series = make_series(CadenceType.semi_monthly, dt.date(2026, 1, 1))
     dates = generate_occurrences(series, dt.date(2026, 1, 1), dt.date(2026, 2, 28))
     assert dates == [
-        dt.date(2026, 1, 1),
-        dt.date(2026, 1, 16),
-        dt.date(2026, 2, 1),
-        dt.date(2026, 2, 16),
+        dt.date(2026, 1, 15),
+        dt.date(2026, 1, 31),
+        dt.date(2026, 2, 15),
+        dt.date(2026, 2, 28),
+    ]
+
+
+def test_semi_monthly_with_high_day_start_date_still_produces_two_per_month():
+    # Regression test: start_date on the 31st previously collided with the
+    # end-of-month candidate and silently dropped the 15th occurrence.
+    series = make_series(CadenceType.semi_monthly, dt.date(2026, 1, 31))
+    dates = generate_occurrences(series, dt.date(2026, 1, 1), dt.date(2026, 3, 31))
+    assert dates == [
+        dt.date(2026, 1, 31),
+        dt.date(2026, 2, 15),
+        dt.date(2026, 2, 28),
+        dt.date(2026, 3, 15),
+        dt.date(2026, 3, 31),
     ]
 
 

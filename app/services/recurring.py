@@ -89,13 +89,14 @@ def _generate_semi_monthly(series, range_start, range_end):
 
     k = 0
     while True:
-        month_anchor = _add_months(series.start_date, k)
+        month_anchor = _add_months(series.start_date.replace(day=1), k)
         if month_anchor > end:
             break
         last_day = calendar.monthrange(month_anchor.year, month_anchor.month)[1]
-        second = month_anchor.replace(day=min(series.start_date.day + 15, last_day))
+        mid = month_anchor.replace(day=15)
+        eom = month_anchor.replace(day=last_day)
 
-        for candidate in (month_anchor, second):
+        for candidate in (mid, eom):
             if series.start_date <= candidate <= end and candidate >= range_start:
                 dates.append(candidate)
 

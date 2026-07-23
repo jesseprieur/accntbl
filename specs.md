@@ -149,9 +149,9 @@ clipped to the series' own `start_date`/`end_date`. Cadence semantics:
 - `monthly`/`quarterly`/`yearly`: same day-of-month as `start_date`, every
   1/3/12 months; day is clamped to the last day of the target month if it
   doesn't exist there (e.g. Jan 31 monthly → Feb 28).
-- `semi_monthly`: not otherwise specified, so defined as twice per month —
-  `start_date`'s day-of-month, and that day + 15 (both clamped to month
-  length) — anchored to `start_date`, not calendar-fixed to the 1st/15th.
+- `semi_monthly`: twice per month, calendar-fixed to the 15th and the last
+  day of the month (regardless of `start_date`'s day-of-month); `start_date`/
+  `end_date` still clip which occurrences are included.
 - `custom`: `custom_interval_value` + `custom_interval_unit` (`days` /
   `weeks` / `months`), same day/month arithmetic as above.
 
