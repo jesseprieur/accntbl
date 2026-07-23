@@ -53,12 +53,13 @@ design rationale before implementing any item below.
 - [x] Ajax infinite scroll: fetch more future rows on scroll down (up to
       1 year out), fetch more past rows on scroll up
 - [x] Negative running-total rows visually highlighted
+- [ ] Add month end virtual rows, highlighted in light grey and/or with some font adjustment (bold, italics, or something else) denoting current balance, as well as difference between end of this month and the end of the previous month
 
 ## 6. Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §
 "Recurring series editing semantics")
 - [x] Edit row button: state-dependent (edit series form vs. inline PATCH)
-- [ ] Delete/detach row button: state-dependent behavior + label (currently
+- [x] Delete/detach row button: state-dependent behavior + label (currently
       one "Delete" button/action handles both cases and never hard-deletes
       an already-detached row)
 - [x] "Skip this occurrence" action for recurring rows

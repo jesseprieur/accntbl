@@ -79,7 +79,7 @@
         ${isAttached ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit-series">Edit</button>' : ""}
         ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip">Skip</button>' : ""}
         ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip">Un-skip</button>' : ""}
-        ${!row.is_virtual ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
+        ${!row.is_virtual ? `<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">${isAttached ? "Detach" : "Delete"}</button>` : ""}
       </td>
     `;
     return tr;
@@ -129,10 +129,13 @@
     }
   });
 
-  function deleteRow(tr) {
+  function deleteRow(tr, isAttached) {
     const id = tr.dataset.id;
     if (!id) return;
-    if (!window.confirm("Delete this transaction?")) return;
+    const prompt = isAttached
+      ? "Detach this occurrence from its recurring series?"
+      : "Delete this transaction?";
+    if (!window.confirm(prompt)) return;
 
     fetch(`/transactions/${id}`, { method: "DELETE" })
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
@@ -180,7 +183,7 @@
     const deleteButton = event.target.closest('[data-action="delete"]');
     if (deleteButton) {
       const tr = deleteButton.closest("tr");
-      if (tr) deleteRow(tr);
+      if (tr) deleteRow(tr, Boolean(tr.dataset.seriesId));
       return;
     }
 

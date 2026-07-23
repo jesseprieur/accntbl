@@ -537,7 +537,10 @@ def unskip(transaction_id):
 def delete(transaction_id):
     transaction = Transaction.query.get_or_404(transaction_id)
 
-    if transaction.recurring_series_id is not None:
+    if (
+        transaction.recurring_series_id is not None
+        and transaction.occurrence_status == OccurrenceStatus.attached
+    ):
         transaction.occurrence_status = OccurrenceStatus.detached
         db.session.commit()
         return jsonify(

@@ -359,6 +359,38 @@ def test_delete_attached_series_occurrence_detaches_instead_of_deleting(client, 
         assert updated.occurrence_status == OccurrenceStatus.detached
 
 
+def test_delete_detached_series_occurrence_hard_deletes(client, app):
+    with app.app_context():
+        series = RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=dt.date(2026, 7, 1),
+        )
+        db.session.add(series)
+        db.session.commit()
+
+        txn = Transaction(
+            name="Paycheck",
+            cash_amount=Decimal("500.00"),
+            date=dt.date(2026, 7, 1),
+            recurring_series_id=series.id,
+            occurrence_status=OccurrenceStatus.detached,
+        )
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.delete(f"/transactions/{txn_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["deleted"] is True
+
+    with app.app_context():
+        assert Transaction.query.get(txn_id) is None
+
+
 def test_delete_missing_transaction_returns_404(client):
     response = client.delete("/transactions/999999")
     assert response.status_code == 404
