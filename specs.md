@@ -125,10 +125,37 @@ historical record-keeping, not just future projection.
 
 - Editing the series (e.g. changing amount) regenerates/updates all
   occurrences with `occurrence_status = 'attached'`.
-- Editing or deleting a single occurrence sets `occurrence_status = 'detached'`
-  on that row — it becomes fully independent and is never touched by future
-  series edits again. There is no "un-detach" action (yet) — once detached,
-  always detached.
+- Editing a table row is also state-dependent:
+  - Row is `attached`: clicking edit opens the **edit recurring series**
+    form (pre-filled for that row's series), not an inline single-row edit —
+    there's currently no other UI path to edit a series, and inline-editing
+    an attached row's fields directly would be misleading since a future
+    series edit could overwrite them anyway. Saving that form updates the
+    series and regenerates/updates all `attached` occurrences as described
+    above.
+  - Row is `detached` (or a plain one-off with no `recurring_series_id`):
+    clicking edit does a normal inline single-row edit via Ajax PATCH,
+    affecting only that transaction. This is unchanged from today.
+  - There is still no way to detach-then-edit a single occurrence in one
+    step — detach it first (see delete/detach behavior below), then edit it
+    as a standalone row.
+- The delete action on a recurring occurrence is state-dependent, and the UI
+  button label reflects which behavior will happen:
+  - Row is `attached`: button reads **"Detach"**. Sets
+    `occurrence_status = 'detached'` in place (same row, same id, stays
+    visible) — it does NOT hard-delete or create a new row. This exists
+    because hard-deleting an `attached` row would just have it regenerated
+    by the next series edit; detaching is what actually "removes" it from
+    the series going forward while keeping the transaction itself.
+  - Row is already `detached` (or has no `recurring_series_id` at all — a
+    plain one-off): button reads **"Delete"**. Hard-deletes the row, same as
+    any one-off transaction.
+  - Rejected alternative: hiding the original occurrence and spawning a new
+    one-off row in its place. Rejected because the hidden original would
+    still have `occurrence_status = 'detached'` (not `'skipped'`), so it
+    would still be included in the running-total walk — double-counting the
+    same financial event alongside the new row. Reusing the same row avoids
+    this entirely.
 - "Skip once" sets `occurrence_status = 'skipped'` on a single occurrence —
   hidden from the table, series otherwise continues normally.
 - "Un-skip" sets `occurrence_status` back to `attached` — the row becomes
@@ -138,6 +165,19 @@ historical record-keeping, not just future projection.
   with `detached`, which exists specifically to protect a deliberate
   customization from being overwritten — that's why there's no equivalent
   "un-detach" for now.)
+- "Delete series" removes the `recurring_series` row entirely and:
+  - hard-deletes all of its `attached` and `skipped` occurrences (they only
+    exist because the series generated them; skipped rows lose their
+    audit-history purpose once the series they belong to is gone).
+  - `detached` occurrences are NOT deleted — they're already independent
+    one-off transactions by design. Their `recurring_series_id` is set to
+    `NULL` (and `occurrence_status` cleared) so they survive as plain
+    one-off rows instead of dangling on a deleted FK.
+  - This is a destructive, irreversible action — the UI must require an
+    explicit confirmation step before calling the delete endpoint.
+  - Deliberately kept separate from the per-row table UI (which only ever
+    acts on a single occurrence) since deleting a whole series is a much
+    higher-blast-radius action — see Frontend section for entry point.
 
 ## Recurring occurrence generation
 
@@ -172,6 +212,12 @@ password, Flask session-based auth). No self-registration UI needed for v1
   saved via Ajax PATCH.
 - Adding a recurring item = a small form/modal (name, kind, amount, cadence,
   start date, optional end date).
+- Deleting a whole recurring series = a "Delete recurring series" button at
+  the top of the main table page (deliberately NOT part of the per-row table
+  controls, to keep it from being confused with deleting a single
+  occurrence). Opens a modal: dropdown listing all existing
+  `recurring_series` (by name), a Delete button, then a confirmation prompt
+  before the delete request is actually sent.
 
 ## Tech stack
 

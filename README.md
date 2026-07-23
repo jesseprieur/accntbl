@@ -27,8 +27,12 @@ close date, which *does* hit your checking balance on its due date.
   optional notes.
 - **Recurring items**: create a series with a cadence (weekly, biweekly,
   monthly, semi-monthly, quarterly, yearly, or a custom "every N days/weeks/
-  months") and it populates the table automatically. You can edit or skip a
-  single occurrence without touching the rest of the series.
+  months") and it populates the table automatically. You can skip a single
+  occurrence without touching the rest of the series. Editing a row still
+  tied to the series opens the series edit form (there's no way to edit just
+  one occurrence's fields directly); **detach** it first if you want to
+  change that one occurrence independently — a detached row behaves like a
+  normal one-off transaction, editable and deletable on its own.
 - **Credit card**: one default card with a statement-close day and a
   payment-due offset. The app sums your logged Credit +/- purchases per
   statement period and turns that into the Cash payment due on the due date
@@ -99,11 +103,16 @@ page at `/settings`.)
 2. Visit **Settings** to set up your checking account(s) starting balance
    and the credit card's statement close day / payment due offset.
 3. On the main table, add one-off transactions or recurring series (name,
-   kind, amount, cadence, start date, optional end date). Editing an
-   existing series is available via the API but not yet exposed in the UI.
+   kind, amount, cadence, start date, optional end date). Clicking edit on a
+   row still tied to a series opens the series edit form and updates every
+   occurrence still attached to it; detach a row first if you want to edit
+   just that one occurrence.
 4. Scroll down to project up to a year forward; scroll up to review history.
 5. Watch for highlighted rows — that's when your projected balance goes
    negative.
+6. To remove an entire recurring series (not just one occurrence), use the
+   **Delete recurring series** button at the top of the table page — pick
+   the series from the dropdown, confirm, and it's gone.
 
 ## Example
 
