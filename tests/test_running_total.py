@@ -54,7 +54,7 @@ def test_walks_transactions_ascending_and_accumulates_cash_amount():
 def test_credit_amount_does_not_affect_running_total():
     accounts = [make_account(100)]
     transactions = [
-        make_transaction("groceries", dt.date(2026, 1, 5), credit_amount=Decimal("40")),
+        make_transaction("groceries", dt.date(2026, 1, 5), credit_amount=Decimal("-40")),
     ]
     rows = compute_running_total(
         accounts, transactions, None, dt.date(2026, 1, 1), dt.date(2026, 1, 31), include_month_end=False
@@ -102,7 +102,7 @@ def test_credit_card_payment_due_row_is_merged_into_ledger():
     settings = make_settings(statement_close_day=15, payment_due_offset_days=20)
     transactions = [
         make_transaction(
-            "coffee", dt.date(2026, 1, 5), credit_amount=Decimal("50")
+            "coffee", dt.date(2026, 1, 5), credit_amount=Decimal("-50")
         ),
         make_transaction(
             "paycheck", dt.date(2026, 2, 1), cash_amount=Decimal("300")
@@ -122,6 +122,20 @@ def test_credit_card_payment_due_row_is_merged_into_ledger():
     assert rows[2].date == dt.date(2026, 2, 4)
     assert rows[2].cash_amount == Decimal("-50")
     assert rows[2].running_total == Decimal("1250")
+
+
+def test_credit_card_refund_increases_running_total_on_due_date():
+    accounts = [make_account(1000)]
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20)
+    transactions = [
+        make_transaction("returned item", dt.date(2026, 1, 5), credit_amount=Decimal("30")),
+    ]
+    rows = compute_running_total(
+        accounts, transactions, settings, dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
+    )
+    payment_row = next(r for r in rows if r.name == "Default Credit Card Payment")
+    assert payment_row.cash_amount == Decimal("30")
+    assert payment_row.running_total == Decimal("1030")
 
 
 def test_real_row_ordered_before_virtual_row_on_same_date():

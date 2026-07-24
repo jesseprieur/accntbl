@@ -75,7 +75,7 @@ def compute_running_total(
         dues = payment_due_transactions(
             credit_card_settings, transactions, range_start, range_end
         )
-        virtual_rows = [(d.date, d.name, -d.cash_amount, None, False) for d in dues]
+        virtual_rows = [(d.date, d.name, d.cash_amount, None, False) for d in dues]
 
     month_end_rows = (
         [

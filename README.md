@@ -69,7 +69,7 @@ accntbl/
 ├── app/                  # Flask application (routes, models, templates, static)
 ├── migrations/           # Alembic migration scripts
 ├── docker/               # Dockerfile(s) and related config
-├── docker-compose.yml    # Local dev: web + db services
+├── docker-compose.yml    # Local dev: web service (SQLite in a named volume)
 ├── .env.example          # Required environment variables (copy to .env)
 ├── specs.md              # Design source of truth (for Claude/devs)
 ├── implementation_plan.md # Build checklist
@@ -82,7 +82,7 @@ implementation_plan.md for current status.)
 ## Running locally
 
 ```bash
-cp .env.example .env      # fill in DB credentials, secret key, etc.
+cp .env.example .env      # fill in Flask secret key, etc.
 docker compose up --build
 ```
 

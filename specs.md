@@ -93,10 +93,13 @@ simple).
 The credit card is NOT a line item you create manually each cycle. Instead:
 
 1. Statement periods are defined by `statement_close_day`, recurring monthly.
-2. For each closed statement period, sum all `credit_amount` transactions
-   dated within that period.
+2. `credit_amount` is negative for money spent on the card, positive for
+   refunds. For each closed statement period, sum all `credit_amount`
+   transactions dated within that period.
 3. That sum becomes the `cash_amount` of an auto-generated payment-due
-   transaction, dated `statement_close_day + payment_due_offset_days`.
+   transaction, dated `statement_close_day + payment_due_offset_days`, added
+   directly (not subtracted) to the running total — a net-spend period
+   produces a negative sum, which reduces the running total on the due date.
 4. This is recalculated on the fly at render/query time (not persisted as a
    stored aggregate) — since credit transactions in a period remain editable
    indefinitely and must auto-recalculate the payment-due amount. Given
@@ -120,6 +123,13 @@ The credit card is NOT a line item you create manually each cycle. Instead:
 
 Past-dated transactions remain in the table (scrollable above "today") for
 historical record-keeping, not just future projection.
+
+## Month-end markers
+
+A virtual row is inserted at the end of every calendar month (not persisted —
+computed at render time like the credit card payment-due row): shaded
+background, bold/italic text, showing that month's closing running total and
+the change versus the previous month's close.
 
 ## Recurring series editing semantics
 

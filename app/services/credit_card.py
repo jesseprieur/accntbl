@@ -96,6 +96,10 @@ def payment_due_transactions(settings, transactions, range_start, range_end):
     specs.md's running-total rules). Recalculated on the fly, never
     persisted, so edits to underlying Credit +/- transactions are always
     reflected.
+
+    `credit_amount` is negative for money spent on the card and positive for
+    refunds, so the sum is added directly (not subtracted) to the running
+    total on the payment due date by `running_total.compute_running_total`.
     """
     offset = timedelta(days=settings.payment_due_offset_days)
     periods = statement_periods(settings, range_start - offset, range_end - offset)

@@ -84,10 +84,10 @@ def test_range_start_after_this_months_close_skips_to_next_month():
 def test_payment_due_sums_credit_amounts_within_period():
     settings = make_settings(statement_close_day=15, payment_due_offset_days=20)
     transactions = [
-        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("50.00")),
-        make_transaction(dt.date(2026, 1, 15), credit_amount=Decimal("25.00")),
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+        make_transaction(dt.date(2026, 1, 15), credit_amount=Decimal("-25.00")),
         # Outside the period (falls in the next statement period).
-        make_transaction(dt.date(2026, 1, 16), credit_amount=Decimal("999.00")),
+        make_transaction(dt.date(2026, 1, 16), credit_amount=Decimal("-999.00")),
         # A cash-only row should be ignored entirely.
         make_transaction(dt.date(2026, 1, 10), credit_amount=None),
     ]
@@ -96,24 +96,36 @@ def test_payment_due_sums_credit_amounts_within_period():
     )
     assert len(dues) == 1
     assert dues[0].date == dt.date(2026, 2, 4)
-    assert dues[0].cash_amount == Decimal("75.00")
+    assert dues[0].cash_amount == Decimal("-75.00")
     assert dues[0].name == "Default Credit Card Payment"
+
+
+def test_payment_due_nets_refunds_against_spend():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20)
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+        make_transaction(dt.date(2026, 1, 10), credit_amount=Decimal("20.00")),
+    ]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28)
+    )
+    assert dues[0].cash_amount == Decimal("-30.00")
 
 
 def test_payment_due_excludes_skipped_transactions():
     settings = make_settings(statement_close_day=15, payment_due_offset_days=20)
     transactions = [
-        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("50.00")),
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
         make_transaction(
             dt.date(2026, 1, 10),
-            credit_amount=Decimal("30.00"),
+            credit_amount=Decimal("-30.00"),
             occurrence_status=OccurrenceStatus.skipped,
         ),
     ]
     dues = payment_due_transactions(
         settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28)
     )
-    assert dues[0].cash_amount == Decimal("50.00")
+    assert dues[0].cash_amount == Decimal("-50.00")
 
 
 def test_payment_due_is_zero_when_no_credit_transactions_in_period():
@@ -139,11 +151,11 @@ def test_payment_due_filters_by_due_date_not_close_date():
 def test_payment_due_multiple_periods_ordered_by_due_date():
     settings = make_settings(statement_close_day=15, payment_due_offset_days=10)
     transactions = [
-        make_transaction(dt.date(2026, 1, 10), credit_amount=Decimal("10.00")),
-        make_transaction(dt.date(2026, 2, 10), credit_amount=Decimal("20.00")),
+        make_transaction(dt.date(2026, 1, 10), credit_amount=Decimal("-10.00")),
+        make_transaction(dt.date(2026, 2, 10), credit_amount=Decimal("-20.00")),
     ]
     dues = payment_due_transactions(
         settings, transactions, dt.date(2026, 1, 1), dt.date(2026, 3, 1)
     )
     assert [d.date for d in dues] == [dt.date(2026, 1, 25), dt.date(2026, 2, 25)]
-    assert [d.cash_amount for d in dues] == [Decimal("10.00"), Decimal("20.00")]
+    assert [d.cash_amount for d in dues] == [Decimal("-10.00"), Decimal("-20.00")]

@@ -5,14 +5,12 @@ design rationale before implementing any item below.
 
 ## 0. Project scaffolding
 - [x] Initialize repo structure (`app/`, `migrations/`, `docker/`, etc.)
-- [x] `docker-compose.yml` with `web` (Flask) + `db` (MySQL) services
+- [x] `docker-compose.yml` with a single `web` (Flask) service; SQLite file
+  persisted in a named volume (no separate DB service/container)
 - [x] Flask app factory + config (dev/test/prod via env vars)
-- [x] SQLAlchemy setup + Alembic init
-- [x] `.env.example` with DB creds, Flask secret key
-- [x] Migrated DB from MySQL to SQLite (single-file, persistent volume) for
-  cheap single-container hosting; dropped the `db` compose service and
-  PyMySQL/cryptography deps, added `render_as_batch` to Alembic env for
-  future SQLite-safe migrations
+- [x] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
+  SQLite-safe migrations)
+- [x] `.env.example` with Flask secret key and app config
 
 ## 1. Data model
 - [x] `users` model + seed script/CLI command to create the single user
@@ -57,7 +55,9 @@ design rationale before implementing any item below.
 - [x] Ajax infinite scroll: fetch more future rows on scroll down (up to
       1 year out), fetch more past rows on scroll up
 - [x] Negative running-total rows visually highlighted
-- [x] Add month end virtual rows, highlighted in light grey and/or with some font adjustment (bold, italics, or something else) denoting current balance, as well as difference between end of this month and the end of the previous month
+- [x] Month-end virtual rows: shaded + bold/italic, showing closing running
+      total and change vs. previous month (see specs.md § "Month-end
+      markers")
 
 ## 6. Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §
