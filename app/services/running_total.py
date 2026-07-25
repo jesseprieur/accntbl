@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from app.models import OccurrenceStatus
+from app.models import Kind, OccurrenceStatus
 from app.services.credit_card import payment_due_transactions
 
 
@@ -65,7 +65,7 @@ def compute_running_total(
     baseline = sum((a.starting_balance for a in checking_accounts), Decimal("0"))
 
     real_rows = [
-        (t.date, t.name, t.cash_amount or Decimal("0"), t, False)
+        (t.date, t.name, t.amount if t.kind == Kind.cash else Decimal("0"), t, False)
         for t in transactions
         if t.occurrence_status != OccurrenceStatus.skipped
     ]

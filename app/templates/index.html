@@ -35,12 +35,19 @@
               <input type="date" class="form-control form-control-sm" name="date" value="{{ today }}" required>
             </div>
             <div class="mb-2">
-              <label class="form-label">Cash amount</label>
-              <input type="number" step="0.01" class="form-control form-control-sm" name="cash_amount">
+              <label class="form-label d-block">Kind</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="kind" id="add-transaction-kind-cash" value="cash" checked>
+                <label class="form-check-label" for="add-transaction-kind-cash">Cash</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="kind" id="add-transaction-kind-credit" value="credit">
+                <label class="form-check-label" for="add-transaction-kind-credit">Credit</label>
+              </div>
             </div>
             <div class="mb-2">
-              <label class="form-label">Credit amount</label>
-              <input type="number" step="0.01" class="form-control form-control-sm" name="credit_amount">
+              <label class="form-label">Amount</label>
+              <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
             </div>
             <div class="mb-2">
               <label class="form-label">Notes</label>
@@ -71,11 +78,15 @@
               <input type="text" class="form-control form-control-sm" name="name" required>
             </div>
             <div class="mb-2">
-              <label class="form-label">Kind</label>
-              <select class="form-select form-select-sm" name="kind" required>
-                <option value="cash">Cash</option>
-                <option value="credit">Credit</option>
-              </select>
+              <label class="form-label d-block">Kind</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="kind" id="add-series-kind-cash" value="cash" checked>
+                <label class="form-check-label" for="add-series-kind-cash">Cash</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="kind" id="add-series-kind-credit" value="credit">
+                <label class="form-check-label" for="add-series-kind-credit">Credit</label>
+              </div>
             </div>
             <div class="mb-2">
               <label class="form-label">Amount</label>
@@ -143,11 +154,15 @@
               <input type="text" class="form-control form-control-sm" name="name" required>
             </div>
             <div class="mb-2">
-              <label class="form-label">Kind</label>
-              <select class="form-select form-select-sm" name="kind" required>
-                <option value="cash">Cash</option>
-                <option value="credit">Credit</option>
-              </select>
+              <label class="form-label d-block">Kind</label>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="kind" id="edit-series-kind-cash" value="cash">
+                <label class="form-check-label" for="edit-series-kind-cash">Cash</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="kind" id="edit-series-kind-credit" value="credit">
+                <label class="form-check-label" for="edit-series-kind-credit">Credit</label>
+              </div>
             </div>
             <div class="mb-2">
               <label class="form-label">Amount</label>

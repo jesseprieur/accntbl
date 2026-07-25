@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-from app.models import OccurrenceStatus
+from app.models import Kind, OccurrenceStatus
 
 # Safety cap on loop iterations so malformed settings can't hang the request.
 _MAX_ITERATIONS = 10_000
@@ -90,14 +90,14 @@ def payment_due_transactions(settings, transactions, range_start, range_end):
     `settings` for every statement period whose `due_date` falls within
     [range_start, range_end], ordered ascending by due_date.
 
-    Each period's amount is the sum of `credit_amount` on transactions dated
-    within that period (inclusive of `start`/`close_date`), excluding rows
-    with `occurrence_status == skipped` (hidden from the table, per
+    Each period's amount is the sum of `amount` on kind=credit transactions
+    dated within that period (inclusive of `start`/`close_date`), excluding
+    rows with `occurrence_status == skipped` (hidden from the table, per
     specs.md's running-total rules). Recalculated on the fly, never
     persisted, so edits to underlying Credit +/- transactions are always
     reflected.
 
-    `credit_amount` is negative for money spent on the card and positive for
+    `amount` is negative for money spent on the card and positive for
     refunds, so the sum is added directly (not subtracted) to the running
     total on the payment due date by `running_total.compute_running_total`.
     """
@@ -108,9 +108,9 @@ def payment_due_transactions(settings, transactions, range_start, range_end):
     for period in periods:
         total = sum(
             (
-                t.credit_amount
+                t.amount
                 for t in transactions
-                if t.credit_amount
+                if t.kind == Kind.credit
                 and period.start <= t.date <= period.close_date
                 and t.occurrence_status != OccurrenceStatus.skipped
             ),

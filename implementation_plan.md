@@ -32,7 +32,7 @@ design rationale before implementing any item below.
       interval/start/end date)
 - [x] Credit card statement period calculator (given `statement_close_day`,
       a date range → list of period boundaries)
-- [x] Credit card payment-due amount calculator (sum `credit_amount`
+- [x] Credit card payment-due amount calculator (sum `amount` on kind=credit
       transactions per closed period → generates virtual cash transaction on
       due date)
 - [x] Running total calculator (baseline from `checking_accounts` +
@@ -77,7 +77,8 @@ design rationale before implementing any item below.
 
 ## 7. Polish / validation
 - [ ] Form validation (dates, numeric amounts, required fields)
-- [ ] Enforce "cash_amount XOR credit_amount" at the app layer
+- [x] Enforce "cash XOR credit" at the schema layer (`transactions.kind` +
+      single `amount` column, same shape as `recurring_series`)
 - [ ] Basic error handling/flash messages
 
 ## 8. Testing & local run

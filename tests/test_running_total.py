@@ -2,7 +2,7 @@ import datetime as dt
 from decimal import Decimal
 from types import SimpleNamespace
 
-from app.models import OccurrenceStatus
+from app.models import Kind, OccurrenceStatus
 from app.services.running_total import compute_running_total
 
 
@@ -21,11 +21,13 @@ def make_settings(statement_close_day, payment_due_offset_days=20, name="Default
 def make_transaction(
     name, date, cash_amount=None, credit_amount=None, occurrence_status=None
 ):
+    kind = Kind.cash if cash_amount is not None else Kind.credit
+    amount = cash_amount if cash_amount is not None else credit_amount
     return SimpleNamespace(
         name=name,
         date=date,
-        cash_amount=cash_amount,
-        credit_amount=credit_amount,
+        kind=kind,
+        amount=amount,
         occurrence_status=occurrence_status,
     )
 

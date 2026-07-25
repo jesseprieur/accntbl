@@ -102,8 +102,8 @@ def window():
             "date": row.date.isoformat(),
             "cash_amount": str(row.cash_amount),
             "credit_amount": (
-                str(row.transaction.credit_amount)
-                if row.transaction is not None and row.transaction.credit_amount
+                str(row.transaction.amount)
+                if row.transaction is not None and row.transaction.kind == Kind.credit
                 else None
             ),
             "notes": row.transaction.notes if row.transaction is not None else None,
@@ -137,8 +137,8 @@ def window():
                 "id": t.id,
                 "name": t.name,
                 "date": t.date.isoformat(),
-                "cash_amount": str(t.cash_amount) if t.cash_amount else "0",
-                "credit_amount": str(t.credit_amount) if t.credit_amount else None,
+                "cash_amount": str(t.amount) if t.kind == Kind.cash else "0",
+                "credit_amount": str(t.amount) if t.kind == Kind.credit else None,
                 "notes": t.notes,
                 "recurring_series_id": t.recurring_series_id,
                 "occurrence_status": t.occurrence_status.value,
@@ -170,16 +170,20 @@ def create():
             raise ValueError("Date is required.")
         txn_date = _parse_date_param(payload["date"], "Date")
 
-        cash_amount = _parse_decimal_field(payload.get("cash_amount"), "Cash amount")
-        credit_amount = _parse_decimal_field(payload.get("credit_amount"), "Credit amount")
+        kind = _parse_enum_field(Kind, payload.get("kind"), "Kind")
+
+        amount = _parse_decimal_field(payload.get("amount"), "Amount")
+        if amount is None:
+            raise ValueError("Amount is required.")
+
         notes = payload.get("notes") or None
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
     transaction = Transaction(
         name=name,
-        cash_amount=cash_amount,
-        credit_amount=credit_amount,
+        kind=kind,
+        amount=amount,
         date=txn_date,
         notes=notes,
     )
@@ -191,8 +195,8 @@ def create():
             "id": transaction.id,
             "name": transaction.name,
             "date": transaction.date.isoformat(),
-            "cash_amount": str(transaction.cash_amount) if transaction.cash_amount is not None else None,
-            "credit_amount": str(transaction.credit_amount) if transaction.credit_amount is not None else None,
+            "kind": transaction.kind.value,
+            "amount": str(transaction.amount),
             "notes": transaction.notes,
             "recurring_series_id": transaction.recurring_series_id,
             "occurrence_status": None,
@@ -274,8 +278,8 @@ def create_series():
         db.session.add(
             Transaction(
                 name=series.name,
-                cash_amount=amount if kind == Kind.cash else None,
-                credit_amount=amount if kind == Kind.credit else None,
+                kind=kind,
+                amount=amount,
                 date=occurrence_date,
                 notes=notes,
                 recurring_series_id=series.id,
@@ -422,8 +426,8 @@ def update_series(series_id):
         db.session.add(
             Transaction(
                 name=series.name,
-                cash_amount=series.amount if series.kind == Kind.cash else None,
-                credit_amount=series.amount if series.kind == Kind.credit else None,
+                kind=series.kind,
+                amount=series.amount,
                 date=occurrence_date,
                 notes=series.notes,
                 recurring_series_id=series.id,
@@ -491,15 +495,14 @@ def update(transaction_id):
                 raise ValueError("Name is required.")
             transaction.name = name
 
-        if "cash_amount" in payload:
-            transaction.cash_amount = _parse_decimal_field(
-                payload["cash_amount"], "Cash amount"
-            )
+        if "kind" in payload:
+            transaction.kind = _parse_enum_field(Kind, payload["kind"], "Kind")
 
-        if "credit_amount" in payload:
-            transaction.credit_amount = _parse_decimal_field(
-                payload["credit_amount"], "Credit amount"
-            )
+        if "amount" in payload:
+            amount = _parse_decimal_field(payload["amount"], "Amount")
+            if amount is None:
+                raise ValueError("Amount is required.")
+            transaction.amount = amount
 
         if "date" in payload:
             transaction.date = _parse_date_param(payload["date"], "Date")
@@ -522,8 +525,8 @@ def update(transaction_id):
             "id": transaction.id,
             "name": transaction.name,
             "date": transaction.date.isoformat(),
-            "cash_amount": str(transaction.cash_amount) if transaction.cash_amount is not None else None,
-            "credit_amount": str(transaction.credit_amount) if transaction.credit_amount is not None else None,
+            "kind": transaction.kind.value,
+            "amount": str(transaction.amount),
             "notes": transaction.notes,
             "recurring_series_id": transaction.recurring_series_id,
             "occurrence_status": (

@@ -67,9 +67,10 @@ Concrete line items shown in the table. Both one-off and materialized
 recurring occurrences live here.
 - id
 - name
-- cash_amount (decimal, nullable/0 — affects running total)
-- credit_amount (decimal, nullable/0 — does NOT affect running total; logs
-  spend against the default credit card)
+- kind (`cash` | `credit` — `cash` affects running total directly; `credit`
+  logs spend against the default credit card and does NOT affect running
+  total directly, only via the auto-generated payment-due row)
+- amount (decimal, signed: positive = inflow, negative = outflow)
 - date
 - notes (optional)
 - recurring_series_id (nullable — set if generated from a series)
@@ -84,17 +85,13 @@ recurring occurrences live here.
     normally. Un-skipping sets this back to `attached` (see below) — there
     is currently no "un-detach" action.
 
-Note: a transaction row has EITHER a meaningful cash_amount OR credit_amount,
-not both (enforced at the app layer, not DB constraint, to keep schema
-simple).
-
 ## Credit card payment logic
 
 The credit card is NOT a line item you create manually each cycle. Instead:
 
 1. Statement periods are defined by `statement_close_day`, recurring monthly.
-2. `credit_amount` is negative for money spent on the card, positive for
-   refunds. For each closed statement period, sum all `credit_amount`
+2. `amount` is negative for money spent on the card, positive for
+   refunds. For each closed statement period, sum `amount` on all kind=credit
    transactions dated within that period.
 3. That sum becomes the `cash_amount` of an auto-generated payment-due
    transaction, dated `statement_close_day + payment_due_offset_days`, added
@@ -116,8 +113,8 @@ The credit card is NOT a line item you create manually each cycle. Instead:
 1. Baseline = sum of all `checking_accounts.starting_balance`.
 2. Walk all transactions where `occurrence_status != 'skipped'` (or
    `recurring_series_id` is null) in ascending date order.
-3. Running total += `cash_amount` for each row (credit_amount never affects
-   it).
+3. Running total += `amount` for each kind=cash row (kind=credit rows never
+   affect it directly).
 4. Any row where running total < 0 is visually flagged (highlighted) in the
    UI.
 

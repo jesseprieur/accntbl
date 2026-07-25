@@ -72,14 +72,14 @@ def test_window_returns_rows_within_range_with_running_total(client, app):
             name="Primary", starting_balance=Decimal("100.00"), as_of_date=dt.date(2026, 1, 1)
         ))
         db.session.add(Transaction(
-            name="Paycheck", cash_amount=Decimal("500.00"), date=dt.date(2026, 7, 10)
+            name="Paycheck", kind=Kind.cash, amount=Decimal("500.00"), date=dt.date(2026, 7, 10)
         ))
         db.session.add(Transaction(
-            name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15)
+            name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15)
         ))
         # Outside the requested window, but must still count toward baseline math.
         db.session.add(Transaction(
-            name="Old expense", cash_amount=Decimal("-50.00"), date=dt.date(2026, 6, 1)
+            name="Old expense", kind=Kind.cash, amount=Decimal("-50.00"), date=dt.date(2026, 6, 1)
         ))
         db.session.commit()
 
@@ -115,7 +115,7 @@ def test_window_includes_virtual_credit_card_payment_rows(client, app):
             starting_balance=Decimal("0"),
         ))
         db.session.add(Transaction(
-            name="Groceries", credit_amount=Decimal("-75.00"), date=dt.date(2026, 7, 5)
+            name="Groceries", kind=Kind.credit, amount=Decimal("-75.00"), date=dt.date(2026, 7, 5)
         ))
         db.session.commit()
 
@@ -141,7 +141,7 @@ def test_window_includes_month_end_virtual_row(client, app):
             name="Primary", starting_balance=Decimal("100.00"), as_of_date=dt.date(2026, 1, 1)
         ))
         db.session.add(Transaction(
-            name="Paycheck", cash_amount=Decimal("500.00"), date=dt.date(2026, 7, 10)
+            name="Paycheck", kind=Kind.cash, amount=Decimal("500.00"), date=dt.date(2026, 7, 10)
         ))
         db.session.commit()
 
@@ -173,7 +173,8 @@ def test_window_pagination_stitches_to_match_a_single_wide_fetch(client, app):
         for i in range(6):
             db.session.add(Transaction(
                 name=f"Txn {i}",
-                cash_amount=Decimal("-25.00"),
+                kind=Kind.cash,
+                amount=Decimal("-25.00"),
                 date=dt.date(2026, 7, 1) + dt.timedelta(days=i * 10),
             ))
         db.session.commit()
@@ -200,7 +201,7 @@ def test_window_pagination_stitches_to_match_a_single_wide_fetch(client, app):
 
 def test_update_requires_login(app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
@@ -212,7 +213,7 @@ def test_update_requires_login(app):
 
 def test_update_one_off_transaction_fields(client, app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
@@ -221,7 +222,7 @@ def test_update_one_off_transaction_fields(client, app):
         f"/transactions/{txn_id}",
         json={
             "name": "Rent (updated)",
-            "cash_amount": "-425.00",
+            "amount": "-425.00",
             "date": "2026-07-16",
             "notes": "raised rent",
         },
@@ -229,7 +230,7 @@ def test_update_one_off_transaction_fields(client, app):
     assert response.status_code == 200
     data = response.get_json()
     assert data["name"] == "Rent (updated)"
-    assert data["cash_amount"] == "-425.00"
+    assert data["amount"] == "-425.00"
     assert data["date"] == "2026-07-16"
     assert data["notes"] == "raised rent"
     assert data["occurrence_status"] is None
@@ -237,13 +238,13 @@ def test_update_one_off_transaction_fields(client, app):
     with app.app_context():
         updated = Transaction.query.get(txn_id)
         assert updated.name == "Rent (updated)"
-        assert updated.cash_amount == Decimal("-425.00")
+        assert updated.amount == Decimal("-425.00")
         assert updated.date == dt.date(2026, 7, 16)
 
 
 def test_update_rejects_blank_name(client, app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
@@ -254,12 +255,12 @@ def test_update_rejects_blank_name(client, app):
 
 def test_update_rejects_malformed_amount(client, app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
 
-    response = client.patch(f"/transactions/{txn_id}", json={"cash_amount": "not-a-number"})
+    response = client.patch(f"/transactions/{txn_id}", json={"amount": "not-a-number"})
     assert response.status_code == 400
 
 
@@ -277,7 +278,8 @@ def test_update_detaches_attached_series_occurrence(client, app):
 
         txn = Transaction(
             name="Paycheck",
-            cash_amount=Decimal("500.00"),
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
             date=dt.date(2026, 7, 1),
             recurring_series_id=series.id,
             occurrence_status=OccurrenceStatus.attached,
@@ -286,7 +288,7 @@ def test_update_detaches_attached_series_occurrence(client, app):
         db.session.commit()
         txn_id = txn.id
 
-    response = client.patch(f"/transactions/{txn_id}", json={"cash_amount": "550.00"})
+    response = client.patch(f"/transactions/{txn_id}", json={"amount": "550.00"})
     assert response.status_code == 200
     data = response.get_json()
     assert data["occurrence_status"] == "detached"
@@ -310,7 +312,8 @@ def test_update_leaves_skipped_occurrence_status_untouched(client, app):
 
         txn = Transaction(
             name="Paycheck",
-            cash_amount=Decimal("500.00"),
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
             date=dt.date(2026, 7, 1),
             recurring_series_id=series.id,
             occurrence_status=OccurrenceStatus.skipped,
@@ -327,7 +330,7 @@ def test_update_leaves_skipped_occurrence_status_untouched(client, app):
 
 def test_delete_requires_login(app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
@@ -339,7 +342,7 @@ def test_delete_requires_login(app):
 
 def test_delete_one_off_transaction_hard_deletes(client, app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
@@ -367,7 +370,8 @@ def test_delete_attached_series_occurrence_detaches_instead_of_deleting(client, 
 
         txn = Transaction(
             name="Paycheck",
-            cash_amount=Decimal("500.00"),
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
             date=dt.date(2026, 7, 1),
             recurring_series_id=series.id,
             occurrence_status=OccurrenceStatus.attached,
@@ -402,7 +406,8 @@ def test_delete_detached_series_occurrence_hard_deletes(client, app):
 
         txn = Transaction(
             name="Paycheck",
-            cash_amount=Decimal("500.00"),
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
             date=dt.date(2026, 7, 1),
             recurring_series_id=series.id,
             occurrence_status=OccurrenceStatus.detached,
@@ -439,7 +444,8 @@ def _make_series_occurrence(app, occurrence_status=OccurrenceStatus.attached):
 
         txn = Transaction(
             name="Paycheck",
-            cash_amount=Decimal("500.00"),
+            kind=Kind.cash,
+            amount=Decimal("500.00"),
             date=dt.date(2026, 7, 1),
             recurring_series_id=series.id,
             occurrence_status=occurrence_status,
@@ -471,7 +477,7 @@ def test_skip_sets_occurrence_status_skipped(client, app):
 
 def test_skip_rejects_one_off_transaction(client, app):
     with app.app_context():
-        txn = Transaction(name="Rent", cash_amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
         db.session.add(txn)
         db.session.commit()
         txn_id = txn.id
@@ -562,7 +568,7 @@ def test_create_requires_login(app):
     anon_client = app.test_client()
     response = anon_client.post(
         "/transactions",
-        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "-400.00"},
+        json={"name": "Rent", "date": "2026-07-15", "kind": "cash", "amount": "-400.00"},
     )
     assert response.status_code == 302
 
@@ -570,20 +576,22 @@ def test_create_requires_login(app):
 def test_create_one_off_transaction(client, app):
     response = client.post(
         "/transactions",
-        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "-400.00", "notes": "monthly"},
+        json={"name": "Rent", "date": "2026-07-15", "kind": "cash", "amount": "-400.00", "notes": "monthly"},
     )
     assert response.status_code == 201
     data = response.get_json()
     assert data["name"] == "Rent"
     assert data["date"] == "2026-07-15"
-    assert data["cash_amount"] == "-400.00"
+    assert data["kind"] == "cash"
+    assert data["amount"] == "-400.00"
     assert data["recurring_series_id"] is None
 
     with app.app_context():
         created = Transaction.query.get(data["id"])
         assert created is not None
         assert created.name == "Rent"
-        assert created.cash_amount == Decimal("-400.00")
+        assert created.kind == Kind.cash
+        assert created.amount == Decimal("-400.00")
         assert created.date == dt.date(2026, 7, 15)
         assert created.notes == "monthly"
         assert created.recurring_series_id is None
@@ -598,7 +606,7 @@ def test_create_appears_in_window_with_running_total(client, app):
 
     client.post(
         "/transactions",
-        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "-400.00"},
+        json={"name": "Rent", "date": "2026-07-15", "kind": "cash", "amount": "-400.00"},
     )
 
     response = client.get(
@@ -615,7 +623,7 @@ def test_create_appears_in_window_with_running_total(client, app):
 def test_create_requires_name(client):
     response = client.post(
         "/transactions",
-        json={"name": "  ", "date": "2026-07-15", "cash_amount": "-400.00"},
+        json={"name": "  ", "date": "2026-07-15", "kind": "cash", "amount": "-400.00"},
     )
     assert response.status_code == 400
 
@@ -623,7 +631,7 @@ def test_create_requires_name(client):
 def test_create_requires_date(client):
     response = client.post(
         "/transactions",
-        json={"name": "Rent", "cash_amount": "-400.00"},
+        json={"name": "Rent", "kind": "cash", "amount": "-400.00"},
     )
     assert response.status_code == 400
 
@@ -631,7 +639,7 @@ def test_create_requires_date(client):
 def test_create_rejects_invalid_amount(client):
     response = client.post(
         "/transactions",
-        json={"name": "Rent", "date": "2026-07-15", "cash_amount": "not-a-number"},
+        json={"name": "Rent", "date": "2026-07-15", "kind": "cash", "amount": "not-a-number"},
     )
     assert response.status_code == 400
 
@@ -687,13 +695,13 @@ def test_create_series_monthly_materializes_attached_occurrences(client, app):
             dt.date(2026, 9, 1),
         ]
         for occurrence in occurrences:
-            assert occurrence.cash_amount == Decimal("1500.00")
-            assert occurrence.credit_amount is None
+            assert occurrence.kind == Kind.cash
+            assert occurrence.amount == Decimal("1500.00")
             assert occurrence.occurrence_status == OccurrenceStatus.attached
             assert occurrence.notes == "biweekly job"
 
 
-def test_create_series_credit_kind_populates_credit_amount(client, app):
+def test_create_series_credit_kind_sets_amount(client, app):
     response = client.post(
         "/transactions/series",
         json={
@@ -711,8 +719,8 @@ def test_create_series_credit_kind_populates_credit_amount(client, app):
 
     with app.app_context():
         occurrence = Transaction.query.filter_by(recurring_series_id=data["id"]).one()
-        assert occurrence.credit_amount == Decimal("-9.99")
-        assert occurrence.cash_amount is None
+        assert occurrence.kind == Kind.credit
+        assert occurrence.amount == Decimal("-9.99")
 
 
 def test_create_series_custom_cadence_requires_interval_fields(client):
@@ -905,7 +913,7 @@ def test_update_series_regenerates_attached_occurrences(client, app):
         ).all()
         assert [t.date for t in occurrences] == [dt.date(2026, 7, 1), dt.date(2026, 8, 1)]
         for occurrence in occurrences:
-            assert occurrence.cash_amount == Decimal("1600.00")
+            assert occurrence.amount == Decimal("1600.00")
             assert occurrence.occurrence_status == OccurrenceStatus.attached
 
 
@@ -944,15 +952,15 @@ def test_update_series_preserves_detached_and_skipped_occurrences(client, app):
         skipped = Transaction.query.get(skipped_id)
         assert detached.occurrence_status == OccurrenceStatus.detached
         assert detached.name == "Custom paycheck"
-        assert detached.cash_amount == Decimal("1500.00")
+        assert detached.amount == Decimal("1500.00")
         assert skipped.occurrence_status == OccurrenceStatus.skipped
-        assert skipped.cash_amount == Decimal("1500.00")
+        assert skipped.amount == Decimal("1500.00")
 
         attached = Transaction.query.filter_by(
             recurring_series_id=series_id, occurrence_status=OccurrenceStatus.attached
         ).all()
         assert len(attached) == 3
-        assert all(t.cash_amount == Decimal("1700.00") for t in attached)
+        assert all(t.amount == Decimal("1700.00") for t in attached)
 
 
 def test_update_series_rejects_end_date_before_start_date(client, app):

@@ -122,7 +122,9 @@
     const value = input.value.trim();
     const body = {};
     if (field === "cash_amount" || field === "credit_amount") {
-      body[field] = value === "" ? null : value;
+      if (value === "") return;
+      body.kind = field === "cash_amount" ? "cash" : "credit";
+      body.amount = value;
     } else {
       body[field] = value;
     }
@@ -378,8 +380,8 @@
       const body = {
         name: formData.get("name"),
         date: formData.get("date"),
-        cash_amount: formData.get("cash_amount") || null,
-        credit_amount: formData.get("credit_amount") || null,
+        kind: formData.get("kind"),
+        amount: formData.get("amount"),
         notes: formData.get("notes") || null,
       };
 

@@ -78,7 +78,8 @@ def test_recurring_series_generated_transaction_is_linked_and_attached(app):
 
     occurrence = Transaction(
         name="Paycheck",
-        cash_amount="2000.00",
+        kind=Kind.cash,
+        amount="2000.00",
         date=datetime.date(2026, 1, 15),
         recurring_series_id=series.id,
         occurrence_status=OccurrenceStatus.attached,
@@ -96,7 +97,8 @@ def test_one_off_transaction_has_no_series(app):
     db.session.add(
         Transaction(
             name="Groceries",
-            cash_amount="-75.25",
+            kind=Kind.cash,
+            amount="-75.25",
             date=datetime.date(2026, 7, 19),
         )
     )

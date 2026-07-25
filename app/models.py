@@ -80,8 +80,8 @@ class Transaction(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    cash_amount = db.Column(db.Numeric(12, 2), nullable=True)
-    credit_amount = db.Column(db.Numeric(12, 2), nullable=True)
+    kind = db.Column(db.Enum(Kind), nullable=False)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
     date = db.Column(db.Date, nullable=False)
     notes = db.Column(db.Text, nullable=True)
     recurring_series_id = db.Column(
