@@ -47,7 +47,10 @@ design rationale before implementing any item below.
 - [x] View/edit credit card settings (statement close day, due offset,
       starting balance)
 
-## 5. Main table view
+## 5. Recurring Series page
+- [ ] View/edit/delete/add recurring series
+
+## 6. Main table view
 - [x] Backend endpoint: paginated transaction window by date range
       (merges real `transactions` rows + virtual CC payment-due rows,
       computes running total)
@@ -55,33 +58,41 @@ design rationale before implementing any item below.
 - [x] Ajax infinite scroll: fetch more future rows on scroll down (up to
       1 year out), fetch more past rows on scroll up
 - [x] Negative running-total rows visually highlighted
-- [x] Month-end virtual rows: shaded + bold/italic, showing closing running
+- [x] Month-end virtual rows: showing closing running
       total and change vs. previous month (see specs.md § "Month-end
       markers")
 
-## 6. Row editing
+## 7. Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §
 "Recurring series editing semantics")
-- [x] Edit row button: state-dependent (edit series form vs. inline PATCH)
-- [x] Delete/detach row button: state-dependent behavior + label (currently
-      one "Delete" button/action handles both cases and never hard-deletes
-      an already-detached row)
-- [x] "Skip this occurrence" action for recurring rows
+- [ ] Edit row button with save/cancel: state-dependent (series -> in-line
+      edit, which causes detach as soon as any field edited and saved. If 
+      cancelled, changes are discarded and transaction stays attached; single
+      -> in-line edit with save/cancel buttons to keep/discard changes)
+- [ ] Delete/Skip row button for single transactions: state dependent + label
+      ("Skip" action for series item, which skips the current iteration;
+      "Delete" for single transactions, which deletes the single transaction)
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form)
-- [x] Add recurring series (modal/form: name, kind, amount, cadence, start
-      date, optional end date)
-- [x] Edit recurring series
-- [x] Delete recurring series: confirmation modal at top of main table page
-      (separate entry point from per-row delete)
 
-## 7. Polish / validation
+## 8. Polish / validation
+- [ ] Color coded rows
+    - [ ] "Detached"/single transactions are not color-coded
+    - [ ] Recurring series items have green shaded border
+    - [ ] Negative transactions could be light red
+    - [ ] Positive transactions could be green
+    - [ ] Negative running-total should be bright red
+    - [ ] Month end rows should be grey or grey bordered and maybe bold;
+- [ ] Use bootstrap-specific components to clean up the UI (eg. radio
+      toggle buttons vs radio buttons)
+- [ ] Icons for buttons (edit, save, cancel, settings, recurring series,
+      logout, etc.)
 - [ ] Form validation (dates, numeric amounts, required fields)
 - [x] Enforce "cash XOR credit" at the schema layer (`transactions.kind` +
       single `amount` column, same shape as `recurring_series`)
 - [ ] Basic error handling/flash messages
 
-## 8. Testing & local run
+## 9. Testing & local run
 - [ ] `docker-compose up` brings up app + DB cleanly from scratch
 - [ ] Seed script for local dev (sample accounts/transactions)
 - [ ] README instructions verified end-to-end on a clean machine/checkout

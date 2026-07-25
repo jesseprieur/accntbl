@@ -25,14 +25,15 @@ close date, which *does* hit your checking balance on its due date.
   amount (affects your running balance), an optional Credit +/- amount
   (logged against the credit card, doesn't affect balance directly), and
   optional notes.
-- **Recurring items**: create a series with a cadence (weekly, biweekly,
-  monthly, semi-monthly, quarterly, yearly, or a custom "every N days/weeks/
-  months") and it populates the table automatically. You can skip a single
-  occurrence without touching the rest of the series. Editing a row still
-  tied to the series opens the series edit form (there's no way to edit just
-  one occurrence's fields directly); **detach** it first if you want to
-  change that one occurrence independently — a detached row behaves like a
-  normal one-off transaction, editable and deletable on its own.
+- **Recurring items**: create a series (on the dedicated Recurring Series
+  page) with a cadence (weekly, biweekly, monthly, semi-monthly, quarterly,
+  yearly, or a custom "every N days/weeks/months") and it populates the
+  table automatically. On the main table, **Skip** hides a single
+  occurrence without touching the rest of the series (reversible via
+  Un-skip). Editing a row still tied to the series is a normal inline
+  edit — saving it detaches just that occurrence (it becomes a standalone
+  transaction, editable/deletable on its own from then on) while the rest
+  of the series is unaffected; cancelling the edit leaves it attached.
 - **Credit card**: one default card with a statement-close day and a
   payment-due offset. The app sums your logged Credit +/- purchases per
   statement period and turns that into the Cash payment due on the due date
@@ -40,8 +41,8 @@ close date, which *does* hit your checking balance on its due date.
 - **History**: past transactions stay visible (scroll up) — this isn't just
   a forward-looking projection, it's a running ledger.
 - **Month-end markers**: a virtual row is inserted at the end of every month,
-  bolded/italicized and shaded, showing that month's closing balance and the
-  change versus the previous month's close.
+  showing that month's closing balance and the change versus the previous
+  month's close.
 
 ## Architecture
 
@@ -107,15 +108,15 @@ page at `/settings`.)
 1. Log in with the single configured user.
 2. Visit **Settings** to set up your checking account(s) starting balance
    and the credit card's statement close day / payment due offset.
-3. On the main table, add one-off transactions or recurring series (name,
-   kind, amount, cadence, start date, optional end date). See "Key ideas"
-   above for how editing/detaching a recurring row works.
+3. On the main table, add one-off transactions. Use the **Recurring Series**
+   page to add/edit/delete recurring series (name, kind, amount, cadence,
+   start date, optional end date). See "Key ideas" above for how
+   editing/detaching a recurring row on the main table works.
 4. Scroll down to project up to a year forward; scroll up to review history.
 5. Watch for highlighted rows — that's when your projected balance goes
    negative.
 6. To remove an entire recurring series (not just one occurrence), use the
-   **Delete recurring series** button at the top of the table page — pick
-   the series from the dropdown, confirm, and it's gone.
+   Recurring Series page — pick the series, confirm, and it's gone.
 
 ## Example
 
