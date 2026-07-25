@@ -1016,6 +1016,35 @@ def test_list_series_returns_all_series(client, app):
     assert names == ["Gym membership", "Paycheck"]
 
 
+def test_list_series_includes_full_fields_for_management_page(client, app):
+    client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "custom",
+            "custom_interval_value": "10",
+            "custom_interval_unit": "days",
+            "start_date": "2026-07-01",
+            "end_date": "2026-12-31",
+            "notes": "biweekly-ish",
+        },
+    )
+
+    response = client.get("/transactions/series")
+    assert response.status_code == 200
+    series = response.get_json()["series"][0]
+    assert series["kind"] == "cash"
+    assert series["amount"] == "1500.00"
+    assert series["cadence_type"] == "custom"
+    assert series["custom_interval_value"] == 10
+    assert series["custom_interval_unit"] == "days"
+    assert series["start_date"] == "2026-07-01"
+    assert series["end_date"] == "2026-12-31"
+    assert series["notes"] == "biweekly-ish"
+
+
 def test_delete_series_requires_login(app):
     with app.app_context():
         series = RecurringSeries(

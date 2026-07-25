@@ -48,7 +48,7 @@ design rationale before implementing any item below.
       starting balance)
 
 ## 5. Recurring Series page
-- [ ] View/edit/delete/add recurring series
+- [x] View/edit/delete/add recurring series
 
 ## 6. Main table view
 - [x] Backend endpoint: paginated transaction window by date range
@@ -65,11 +65,11 @@ design rationale before implementing any item below.
 ## 7. Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §
 "Recurring series editing semantics")
-- [ ] Edit row button with save/cancel: state-dependent (series -> in-line
+- [x] Edit row button with save/cancel: state-dependent (series -> in-line
       edit, which causes detach as soon as any field edited and saved. If 
       cancelled, changes are discarded and transaction stays attached; single
       -> in-line edit with save/cancel buttons to keep/discard changes)
-- [ ] Delete/Skip row button for single transactions: state dependent + label
+- [x] Delete/Skip row button for single transactions: state dependent + label
       ("Skip" action for series item, which skips the current iteration;
       "Delete" for single transactions, which deletes the single transaction)
 - [x] "Un-skip" action for recurring rows

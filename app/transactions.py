@@ -315,7 +315,25 @@ def create_series():
 def list_series():
     series = RecurringSeries.query.order_by(RecurringSeries.name).all()
     return jsonify(
-        {"series": [{"id": s.id, "name": s.name} for s in series]}
+        {
+            "series": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "kind": s.kind.value,
+                    "amount": str(s.amount),
+                    "cadence_type": s.cadence_type.value,
+                    "custom_interval_value": s.custom_interval_value,
+                    "custom_interval_unit": (
+                        s.custom_interval_unit.value if s.custom_interval_unit else None
+                    ),
+                    "start_date": s.start_date.isoformat(),
+                    "end_date": s.end_date.isoformat() if s.end_date else None,
+                    "notes": s.notes,
+                }
+                for s in series
+            ]
+        }
     )
 
 

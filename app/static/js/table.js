@@ -40,18 +40,21 @@
     return String(value == null ? "" : value).replace(/"/g, "&quot;");
   }
 
-  function editableCell(field, value, editable) {
-    if (!editable) {
-      return `<td>${value == null ? "" : value}</td>`;
-    }
-    return `<td><input type="text" class="form-control form-control-sm border-0" data-field="${field}" value="${escapeAttr(value)}"></td>`;
-  }
+  // Raw row data keyed by transaction id, so an in-progress edit can be
+  // cancelled back to its last-known-good values without a round trip.
+  const rowDataById = new Map();
 
   function buildRow(row) {
     if (row.is_month_end) {
       return buildMonthEndRow(row);
     }
+    if (row.id != null) {
+      rowDataById.set(String(row.id), row);
+    }
+    return buildViewRow(row);
+  }
 
+  function buildViewRow(row) {
     const tr = document.createElement("tr");
     tr.dataset.date = row.date;
     tr.dataset.id = row.id == null ? "" : row.id;
@@ -63,9 +66,10 @@
     }
     const isSkipped = row.occurrence_status === "skipped";
     const isAttached = row.occurrence_status === "attached";
-    const editable = !row.is_virtual && !isSkipped && !isAttached;
-    const skippable = !row.is_virtual && !isSkipped && row.recurring_series_id != null;
-    const unskippable = !row.is_virtual && row.recurring_series_id != null && isSkipped;
+    const editable = !row.is_virtual && !isSkipped;
+    const skippable = !row.is_virtual && isAttached;
+    const unskippable = !row.is_virtual && isSkipped && row.recurring_series_id != null;
+    const deletable = !row.is_virtual && !isSkipped && !isAttached;
     if (isSkipped) {
       tr.classList.add("text-muted");
     }
@@ -73,17 +77,36 @@
       tr.dataset.seriesId = row.recurring_series_id;
     }
     tr.innerHTML = `
-      ${editableCell("date", row.date, editable)}
-      ${editableCell("name", row.name, editable)}
-      ${editableCell("cash_amount", formatAmount(row.cash_amount), editable)}
-      ${editableCell("credit_amount", formatAmount(row.credit_amount), editable)}
+      <td>${row.date}</td>
+      <td>${row.name}</td>
+      <td>${formatAmount(row.cash_amount)}</td>
+      <td>${formatAmount(row.credit_amount)}</td>
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
-      ${editableCell("notes", row.notes || "", editable)}
-      <td>
-        ${isAttached ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit-series">Edit</button>' : ""}
+      <td>${row.notes || ""}</td>
+      <td class="text-nowrap">
+        ${editable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit">Edit</button>' : ""}
         ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip">Skip</button>' : ""}
         ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip">Un-skip</button>' : ""}
-        ${!row.is_virtual ? `<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">${isAttached ? "Detach" : "Delete"}</button>` : ""}
+        ${deletable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
+      </td>
+    `;
+    return tr;
+  }
+
+  function buildEditRow(row) {
+    const tr = document.createElement("tr");
+    tr.dataset.date = row.date;
+    tr.dataset.id = row.id;
+    tr.innerHTML = `
+      <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${escapeAttr(row.date)}"></td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${escapeAttr(row.name)}"></td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="cash_amount" value="${escapeAttr(formatAmount(row.cash_amount))}"></td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="credit_amount" value="${escapeAttr(formatAmount(row.credit_amount))}"></td>
+      <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${escapeAttr(row.notes || "")}"></td>
+      <td class="text-nowrap">
+        <button type="button" class="btn btn-primary btn-sm" data-action="save">Save</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel">Cancel</button>
       </td>
     `;
     return tr;
@@ -116,17 +139,26 @@
     return tr;
   }
 
-  function saveField(tr, field, input) {
+  function saveRow(tr) {
     const id = tr.dataset.id;
     if (!id) return;
-    const value = input.value.trim();
-    const body = {};
-    if (field === "cash_amount" || field === "credit_amount") {
-      if (value === "") return;
-      body.kind = field === "cash_amount" ? "cash" : "credit";
-      body.amount = value;
-    } else {
-      body[field] = value;
+
+    const values = {};
+    tr.querySelectorAll("[data-field]").forEach((input) => {
+      values[input.dataset.field] = input.value.trim();
+    });
+
+    const body = {
+      name: values.name,
+      date: values.date,
+      notes: values.notes || null,
+    };
+    if (values.cash_amount) {
+      body.kind = "cash";
+      body.amount = values.cash_amount;
+    } else if (values.credit_amount) {
+      body.kind = "credit";
+      body.amount = values.credit_amount;
     }
 
     fetch(`/transactions/${id}`, {
@@ -144,31 +176,10 @@
       });
   }
 
-  tbody.addEventListener(
-    "blur",
-    (event) => {
-      const input = event.target;
-      if (!(input instanceof HTMLInputElement) || !input.dataset.field) return;
-      const tr = input.closest("tr");
-      if (!tr) return;
-      saveField(tr, input.dataset.field, input);
-    },
-    true
-  );
-
-  tbody.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
-      event.target.blur();
-    }
-  });
-
-  function deleteRow(tr, isAttached) {
+  function deleteRow(tr) {
     const id = tr.dataset.id;
     if (!id) return;
-    const prompt = isAttached
-      ? "Detach this occurrence from its recurring series?"
-      : "Delete this transaction?";
-    if (!window.confirm(prompt)) return;
+    if (!window.confirm("Delete this transaction?")) return;
 
     fetch(`/transactions/${id}`, { method: "DELETE" })
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
@@ -213,10 +224,33 @@
   }
 
   tbody.addEventListener("click", (event) => {
+    const editButton = event.target.closest('[data-action="edit"]');
+    if (editButton) {
+      const tr = editButton.closest("tr");
+      const row = tr && rowDataById.get(tr.dataset.id);
+      if (row) tr.replaceWith(buildEditRow(row));
+      return;
+    }
+
+    const cancelButton = event.target.closest('[data-action="cancel"]');
+    if (cancelButton) {
+      const tr = cancelButton.closest("tr");
+      const row = tr && rowDataById.get(tr.dataset.id);
+      if (row) tr.replaceWith(buildViewRow(row));
+      return;
+    }
+
+    const saveButton = event.target.closest('[data-action="save"]');
+    if (saveButton) {
+      const tr = saveButton.closest("tr");
+      if (tr) saveRow(tr);
+      return;
+    }
+
     const deleteButton = event.target.closest('[data-action="delete"]');
     if (deleteButton) {
       const tr = deleteButton.closest("tr");
-      if (tr) deleteRow(tr, Boolean(tr.dataset.seriesId));
+      if (tr) deleteRow(tr);
       return;
     }
 
@@ -231,13 +265,6 @@
     if (unskipButton) {
       const tr = unskipButton.closest("tr");
       if (tr) unskipRow(tr);
-      return;
-    }
-
-    const editSeriesButton = event.target.closest('[data-action="edit-series"]');
-    if (editSeriesButton) {
-      const tr = editSeriesButton.closest("tr");
-      if (tr && tr.dataset.seriesId) openEditSeriesModal(tr.dataset.seriesId);
     }
   });
 
@@ -406,188 +433,4 @@
     });
   }
 
-  const seriesCadenceSelect = document.getElementById("add-series-cadence");
-  const seriesCustomFields = document.getElementById("add-series-custom-fields");
-  function toggleSeriesCustomFields() {
-    if (seriesCadenceSelect && seriesCustomFields) {
-      seriesCustomFields.classList.toggle("d-none", seriesCadenceSelect.value !== "custom");
-    }
-  }
-  if (seriesCadenceSelect) {
-    seriesCadenceSelect.addEventListener("change", toggleSeriesCustomFields);
-    toggleSeriesCustomFields();
-  }
-
-  const addSeriesForm = document.getElementById("add-series-form");
-  if (addSeriesForm) {
-    const addSeriesModalEl = document.getElementById("add-series-modal");
-    const addSeriesError = document.getElementById("add-series-error");
-
-    addSeriesForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const formData = new FormData(addSeriesForm);
-      const body = {
-        name: formData.get("name"),
-        kind: formData.get("kind"),
-        amount: formData.get("amount"),
-        cadence_type: formData.get("cadence_type"),
-        custom_interval_value: formData.get("custom_interval_value") || null,
-        custom_interval_unit: formData.get("custom_interval_unit") || null,
-        start_date: formData.get("start_date"),
-        end_date: formData.get("end_date") || null,
-        notes: formData.get("notes") || null,
-      };
-
-      fetch("/transactions/series", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-        .then(({ ok, data }) => {
-          if (!ok) {
-            addSeriesError.textContent = data.error || "Failed to add recurring series.";
-            addSeriesError.classList.remove("d-none");
-            return;
-          }
-          addSeriesError.classList.add("d-none");
-          addSeriesForm.reset();
-          toggleSeriesCustomFields();
-          const modal = window.bootstrap
-            ? window.bootstrap.Modal.getOrCreateInstance(addSeriesModalEl)
-            : null;
-          if (modal) modal.hide();
-          reloadLoadedWindow();
-        });
-    });
-  }
-
-  const editSeriesForm = document.getElementById("edit-series-form");
-  const editSeriesModalEl = document.getElementById("edit-series-modal");
-  const editSeriesCadenceSelect = document.getElementById("edit-series-cadence");
-  const editSeriesCustomFields = document.getElementById("edit-series-custom-fields");
-
-  function toggleEditSeriesCustomFields() {
-    if (editSeriesCadenceSelect && editSeriesCustomFields) {
-      editSeriesCustomFields.classList.toggle("d-none", editSeriesCadenceSelect.value !== "custom");
-    }
-  }
-  if (editSeriesCadenceSelect) {
-    editSeriesCadenceSelect.addEventListener("change", toggleEditSeriesCustomFields);
-  }
-
-  function openEditSeriesModal(seriesId) {
-    if (!editSeriesForm || !editSeriesModalEl) return;
-    fetch(`/transactions/series/${seriesId}`)
-      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-      .then(({ ok, data }) => {
-        if (!ok) {
-          alert(data.error || "Failed to load recurring series.");
-          return;
-        }
-        editSeriesForm.elements["series_id"].value = data.id;
-        editSeriesForm.elements["name"].value = data.name;
-        editSeriesForm.elements["kind"].value = data.kind;
-        editSeriesForm.elements["amount"].value = data.amount;
-        editSeriesForm.elements["cadence_type"].value = data.cadence_type;
-        editSeriesForm.elements["custom_interval_value"].value = data.custom_interval_value || "";
-        editSeriesForm.elements["custom_interval_unit"].value = data.custom_interval_unit || "days";
-        editSeriesForm.elements["start_date"].value = data.start_date;
-        editSeriesForm.elements["end_date"].value = data.end_date || "";
-        editSeriesForm.elements["notes"].value = data.notes || "";
-        toggleEditSeriesCustomFields();
-        document.getElementById("edit-series-error").classList.add("d-none");
-        const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl) : null;
-        if (modal) modal.show();
-      });
-  }
-
-  if (editSeriesForm) {
-    const editSeriesError = document.getElementById("edit-series-error");
-
-    editSeriesForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const formData = new FormData(editSeriesForm);
-      const seriesId = formData.get("series_id");
-      const body = {
-        name: formData.get("name"),
-        kind: formData.get("kind"),
-        amount: formData.get("amount"),
-        cadence_type: formData.get("cadence_type"),
-        custom_interval_value: formData.get("custom_interval_value") || null,
-        custom_interval_unit: formData.get("custom_interval_unit") || null,
-        start_date: formData.get("start_date"),
-        end_date: formData.get("end_date") || null,
-        notes: formData.get("notes") || null,
-      };
-
-      fetch(`/transactions/series/${seriesId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-        .then(({ ok, data }) => {
-          if (!ok) {
-            editSeriesError.textContent = data.error || "Failed to update recurring series.";
-            editSeriesError.classList.remove("d-none");
-            return;
-          }
-          editSeriesError.classList.add("d-none");
-          const modal = window.bootstrap
-            ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl)
-            : null;
-          if (modal) modal.hide();
-          reloadLoadedWindow();
-        });
-    });
-  }
-
-  const deleteSeriesModalEl = document.getElementById("delete-series-modal");
-  const deleteSeriesSelect = document.getElementById("delete-series-select");
-  const deleteSeriesError = document.getElementById("delete-series-error");
-  const deleteSeriesConfirmBtn = document.getElementById("delete-series-confirm-btn");
-
-  if (deleteSeriesModalEl && deleteSeriesSelect && deleteSeriesConfirmBtn) {
-    deleteSeriesModalEl.addEventListener("show.bs.modal", () => {
-      deleteSeriesError.classList.add("d-none");
-      deleteSeriesSelect.innerHTML = '<option value="">Loading…</option>';
-      fetch("/transactions/series")
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.series.length === 0) {
-            deleteSeriesSelect.innerHTML = '<option value="">No recurring series</option>';
-            return;
-          }
-          deleteSeriesSelect.innerHTML = data.series
-            .map((s) => `<option value="${s.id}">${s.name}</option>`)
-            .join("");
-        });
-    });
-
-    deleteSeriesConfirmBtn.addEventListener("click", () => {
-      const seriesId = deleteSeriesSelect.value;
-      if (!seriesId) return;
-      const seriesName = deleteSeriesSelect.options[deleteSeriesSelect.selectedIndex].textContent;
-      if (!window.confirm(`Permanently delete the recurring series "${seriesName}" and all of its attached occurrences?`)) {
-        return;
-      }
-
-      fetch(`/transactions/series/${seriesId}`, { method: "DELETE" })
-        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-        .then(({ ok, data }) => {
-          if (!ok) {
-            deleteSeriesError.textContent = data.error || "Failed to delete recurring series.";
-            deleteSeriesError.classList.remove("d-none");
-            return;
-          }
-          deleteSeriesError.classList.add("d-none");
-          const modal = window.bootstrap
-            ? window.bootstrap.Modal.getOrCreateInstance(deleteSeriesModalEl)
-            : null;
-          if (modal) modal.hide();
-          reloadLoadedWindow();
-        });
-    });
-  }
 })();
