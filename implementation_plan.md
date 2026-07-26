@@ -94,7 +94,7 @@ design rationale before implementing any item below.
 
 ## 9. Testing & local run
 - [ ] `docker-compose up` brings up app + DB cleanly from scratch
-- [ ] Seed script for local dev (sample accounts/transactions)
+- [x] Seed script for local dev (sample accounts/transactions)
 - [ ] README instructions verified end-to-end on a clean machine/checkout
 
 ## Later (not in scope yet — do not build until asked)

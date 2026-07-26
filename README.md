@@ -104,6 +104,13 @@ Run `flask db upgrade` again any time you pull changes that add new
 migrations. To roll back the most recent migration, use
 `docker compose exec web flask db downgrade -1`.
 
+To try the app with sample data instead of starting from scratch, run
+`docker compose exec web flask seed-demo-data` — it seeds a checking
+account, credit card settings, a few recurring series, and a couple of
+one-off transactions. It's a no-op (refuses to run) if any checking
+account already exists, so it's safe against accidentally overwriting
+real data.
+
 (Checking account and credit card settings are created via the **Settings**
 page at `/settings`.)
 

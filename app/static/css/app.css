@@ -1,0 +1,22 @@
+/* Row/cell color coding for the transactions table (see specs.md § Month-end markers). */
+
+.tx-amount-positive {
+  color: #198754;
+}
+
+.tx-amount-negative {
+  color: #d98880;
+}
+
+.running-total-negative {
+  color: #dc3545;
+  font-weight: 700;
+}
+
+.series-attached-row {
+  border-left: 4px solid #198754;
+}
+
+.month-end-row {
+  border-top: 2px solid #6c757d;
+}
