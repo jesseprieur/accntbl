@@ -85,8 +85,8 @@ design rationale before implementing any item below.
     - [x] Month end rows should be grey or grey bordered and maybe bold;
 - [x] Use bootstrap-specific components to clean up the UI (eg. radio
       toggle buttons vs radio buttons)
-- [ ] Icons for buttons (edit, save, cancel, settings, recurring series,
-      logout, etc.)
+- [x] Icons for buttons (edit, save, cancel, settings (gear icon), recurring
+      series (repeat icon), logout, etc.)
 - [x] Form validation (dates, numeric amounts, required fields)
 - [x] Enforce "cash XOR credit" at the schema layer (`transactions.kind` +
       single `amount` column, same shape as `recurring_series`)

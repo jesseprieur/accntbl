@@ -39,8 +39,8 @@
       <td>${series.end_date || ""}</td>
       <td>${escapeHtml(series.notes || "")}</td>
       <td class="text-nowrap">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit">Edit</button>
-        <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit"><i class="bi bi-pencil"></i> Edit</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete"><i class="bi bi-trash"></i> Delete</button>
       </td>
     `;
     return tr;

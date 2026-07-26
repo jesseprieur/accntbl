@@ -94,10 +94,10 @@
       <td>${runningTotalSpan(row)}</td>
       <td>${row.notes || ""}</td>
       <td class="text-nowrap">
-        ${editable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit">Edit</button>' : ""}
-        ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip">Skip</button>' : ""}
-        ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip">Un-skip</button>' : ""}
-        ${deletable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete">Delete</button>' : ""}
+        ${editable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit"><i class="bi bi-pencil"></i> Edit</button>' : ""}
+        ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip"><i class="bi bi-skip-forward"></i> Skip</button>' : ""}
+        ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip"><i class="bi bi-arrow-counterclockwise"></i> Un-skip</button>' : ""}
+        ${deletable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete"><i class="bi bi-trash"></i> Delete</button>' : ""}
       </td>
     `;
     return tr;
@@ -115,8 +115,8 @@
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
       <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${escapeAttr(row.notes || "")}"></td>
       <td class="text-nowrap">
-        <button type="button" class="btn btn-primary btn-sm" data-action="save">Save</button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" data-action="save"><i class="bi bi-check-lg"></i> Save</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel"><i class="bi bi-x-lg"></i> Cancel</button>
       </td>
     `;
     return tr;
@@ -151,7 +151,7 @@
     const changeLabel =
       change == null
         ? ""
-        : `(${Number(change) >= 0 ? "+" : ""}${formatAmount(change)} vs. prior month end)`;
+        : `(${Number(change) >= 0 ? "+" : ""}${formatAmount(change)})`;
 
     tr.innerHTML = `
       <td>${row.date}</td>

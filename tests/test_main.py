@@ -64,3 +64,36 @@ def test_recurring_series_page_uses_bootstrap_toggle_buttons_for_kind(client):
     assert 'class="btn-check" name="kind" id="add-series-kind-cash"' in body
     assert 'class="btn-check" name="kind" id="edit-series-kind-cash"' in body
     assert 'class="form-check-input" type="radio" name="kind"' not in body
+
+
+def test_base_layout_loads_bootstrap_icons(client):
+    response = client.get("/")
+    body = response.get_data(as_text=True)
+
+    assert "bootstrap-icons" in body
+
+
+def test_index_buttons_use_icons(client):
+    response = client.get("/")
+    body = response.get_data(as_text=True)
+
+    assert '<i class="bi bi-plus-lg"></i> Add transaction' in body
+    assert '<i class="bi bi-arrow-repeat"></i> Recurring Series' in body
+    assert '<i class="bi bi-gear"></i> Settings' in body
+    assert '<i class="bi bi-box-arrow-right"></i> Log out' in body
+
+
+def test_settings_page_buttons_use_icons(client):
+    response = client.get("/settings/")
+    body = response.get_data(as_text=True)
+
+    assert '<i class="bi bi-arrow-left"></i> Back' in body
+    assert '<i class="bi bi-plus-lg"></i> Add' in body
+
+
+def test_recurring_series_page_buttons_use_icons(client):
+    response = client.get("/recurring-series")
+    body = response.get_data(as_text=True)
+
+    assert '<i class="bi bi-plus-lg"></i> Add recurring series' in body
+    assert '<i class="bi bi-arrow-left"></i> Back' in body
