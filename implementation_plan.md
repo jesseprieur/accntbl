@@ -76,13 +76,13 @@ design rationale before implementing any item below.
 - [x] Add one-off transaction (modal/form)
 
 ## 8. Polish / validation
-- [ ] Color coded rows
-    - [ ] "Detached"/single transactions are not color-coded
-    - [ ] Recurring series items have green shaded border
-    - [ ] Negative transactions could be light red
-    - [ ] Positive transactions could be green
-    - [ ] Negative running-total should be bright red
-    - [ ] Month end rows should be grey or grey bordered and maybe bold;
+- [x] Color coded rows
+    - [x] "Detached"/single transactions are not color-coded
+    - [x] Recurring series items have green shaded border
+    - [x] Negative transactions could be light red
+    - [x] Positive transactions could be green
+    - [x] Negative running-total should be bright red
+    - [x] Month end rows should be grey or grey bordered and maybe bold;
 - [ ] Use bootstrap-specific components to clean up the UI (eg. radio
       toggle buttons vs radio buttons)
 - [ ] Icons for buttons (edit, save, cancel, settings, recurring series,

@@ -40,6 +40,18 @@
     return String(value == null ? "" : value).replace(/"/g, "&quot;");
   }
 
+  function amountSpan(value) {
+    const formatted = formatAmount(value);
+    if (!formatted) return "";
+    return `<span class="${ColorCoding.amountClass(value)}">${formatted}</span>`;
+  }
+
+  function runningTotalSpan(row) {
+    if (row.running_total == null) return "";
+    const cls = ColorCoding.runningTotalClass(row.is_negative);
+    return `<span class="${cls}">${formatAmount(row.running_total)}</span>`;
+  }
+
   // Raw row data keyed by transaction id, so an in-progress edit can be
   // cancelled back to its last-known-good values without a round trip.
   const rowDataById = new Map();
@@ -58,9 +70,6 @@
     const tr = document.createElement("tr");
     tr.dataset.date = row.date;
     tr.dataset.id = row.id == null ? "" : row.id;
-    if (row.is_negative) {
-      tr.classList.add("table-danger");
-    }
     if (row.date === today) {
       tr.classList.add("table-primary");
     }
@@ -75,13 +84,14 @@
     }
     if (isAttached) {
       tr.dataset.seriesId = row.recurring_series_id;
+      tr.classList.add("series-attached-row");
     }
     tr.innerHTML = `
       <td>${row.date}</td>
       <td>${row.name}</td>
-      <td>${formatAmount(row.cash_amount)}</td>
-      <td>${formatAmount(row.credit_amount)}</td>
-      <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
+      <td>${amountSpan(row.cash_amount)}</td>
+      <td>${amountSpan(row.credit_amount)}</td>
+      <td>${runningTotalSpan(row)}</td>
       <td>${row.notes || ""}</td>
       <td class="text-nowrap">
         ${editable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit">Edit</button>' : ""}
@@ -116,10 +126,7 @@
     const tr = document.createElement("tr");
     tr.dataset.date = row.date;
     tr.dataset.id = "";
-    tr.classList.add("table-secondary", "fw-bold", "fst-italic");
-    if (row.is_negative) {
-      tr.classList.add("text-danger");
-    }
+    tr.classList.add("table-secondary", "fw-bold", "fst-italic", "month-end-row");
 
     const change = row.month_over_month_change;
     const changeLabel =
@@ -132,7 +139,7 @@
       <td>${row.name}</td>
       <td></td>
       <td></td>
-      <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
+      <td>${runningTotalSpan(row)}</td>
       <td>${changeLabel}</td>
       <td></td>
     `;
