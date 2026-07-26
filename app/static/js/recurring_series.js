@@ -56,7 +56,8 @@
           return;
         }
         data.series.forEach((series) => tbody.appendChild(buildRow(series)));
-      });
+      })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   loadSeries();
@@ -113,6 +114,10 @@
             : null;
           if (modal) modal.hide();
           loadSeries();
+        })
+        .catch(() => {
+          addSeriesError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
+          addSeriesError.classList.remove("d-none");
         });
     });
   }
@@ -137,7 +142,7 @@
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          alert(data.error || "Failed to load recurring series.");
+          AppErrors.show(data.error || "Failed to load recurring series.");
           return;
         }
         editSeriesForm.elements["series_id"].value = data.id;
@@ -154,7 +159,8 @@
         document.getElementById("edit-series-error").classList.add("d-none");
         const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl) : null;
         if (modal) modal.show();
-      });
+      })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   if (editSeriesForm) {
@@ -194,6 +200,10 @@
             : null;
           if (modal) modal.hide();
           loadSeries();
+        })
+        .catch(() => {
+          editSeriesError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
+          editSeriesError.classList.remove("d-none");
         });
     });
   }
@@ -218,11 +228,12 @@
         .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
         .then(({ ok, data }) => {
           if (!ok) {
-            alert(data.error || "Failed to delete recurring series.");
+            AppErrors.show(data.error || "Failed to delete recurring series.");
             return;
           }
           loadSeries();
-        });
+        })
+        .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
     }
   });
 })();

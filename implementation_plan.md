@@ -87,10 +87,10 @@ design rationale before implementing any item below.
       toggle buttons vs radio buttons)
 - [ ] Icons for buttons (edit, save, cancel, settings, recurring series,
       logout, etc.)
-- [ ] Form validation (dates, numeric amounts, required fields)
+- [x] Form validation (dates, numeric amounts, required fields)
 - [x] Enforce "cash XOR credit" at the schema layer (`transactions.kind` +
       single `amount` column, same shape as `recurring_series`)
-- [ ] Basic error handling/flash messages
+- [x] Basic error handling/flash messages
 
 ## 9. Testing & local run
 - [ ] `docker-compose up` brings up app + DB cleanly from scratch

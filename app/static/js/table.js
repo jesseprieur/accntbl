@@ -108,10 +108,10 @@
     tr.dataset.date = row.date;
     tr.dataset.id = row.id;
     tr.innerHTML = `
-      <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${escapeAttr(row.date)}"></td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${escapeAttr(row.name)}"></td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="cash_amount" value="${escapeAttr(formatAmount(row.cash_amount))}"></td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="credit_amount" value="${escapeAttr(formatAmount(row.credit_amount))}"></td>
+      <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${escapeAttr(row.date)}" required></td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${escapeAttr(row.name)}" required></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${escapeAttr(formatAmount(row.cash_amount))}"></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${escapeAttr(formatAmount(row.credit_amount))}"></td>
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
       <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${escapeAttr(row.notes || "")}"></td>
       <td class="text-nowrap">
@@ -120,6 +120,25 @@
       </td>
     `;
     return tr;
+  }
+
+  function buildEditRowErrorRow(message) {
+    const tr = document.createElement("tr");
+    tr.classList.add("edit-row-error");
+    tr.innerHTML = `<td colspan="7" class="text-danger small py-1">${escapeAttr(message)}</td>`;
+    return tr;
+  }
+
+  function clearEditRowError(tr) {
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains("edit-row-error")) {
+      next.remove();
+    }
+  }
+
+  function showEditRowError(tr, message) {
+    clearEditRowError(tr);
+    tr.after(buildEditRowErrorRow(message));
   }
 
   function buildMonthEndRow(row) {
@@ -155,6 +174,13 @@
       values[input.dataset.field] = input.value.trim();
     });
 
+    const validationError = Validation.validateTransactionEdit(values);
+    if (validationError) {
+      showEditRowError(tr, validationError);
+      return;
+    }
+    clearEditRowError(tr);
+
     const body = {
       name: values.name,
       date: values.date,
@@ -176,11 +202,12 @@
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          alert(data.error || "Failed to save change.");
+          showEditRowError(tr, data.error || "Failed to save change.");
           return;
         }
         reloadLoadedWindow();
-      });
+      })
+      .catch(() => showEditRowError(tr, AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   function deleteRow(tr) {
@@ -192,11 +219,12 @@
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          alert(data.error || "Failed to delete transaction.");
+          AppErrors.show(data.error || "Failed to delete transaction.");
           return;
         }
         reloadLoadedWindow();
-      });
+      })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   function skipRow(tr) {
@@ -208,11 +236,12 @@
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          alert(data.error || "Failed to skip occurrence.");
+          AppErrors.show(data.error || "Failed to skip occurrence.");
           return;
         }
         reloadLoadedWindow();
-      });
+      })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   function unskipRow(tr) {
@@ -223,11 +252,12 @@
       .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          alert(data.error || "Failed to un-skip occurrence.");
+          AppErrors.show(data.error || "Failed to un-skip occurrence.");
           return;
         }
         reloadLoadedWindow();
-      });
+      })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   tbody.addEventListener("click", (event) => {
@@ -243,7 +273,10 @@
     if (cancelButton) {
       const tr = cancelButton.closest("tr");
       const row = tr && rowDataById.get(tr.dataset.id);
-      if (row) tr.replaceWith(buildViewRow(row));
+      if (row) {
+        clearEditRowError(tr);
+        tr.replaceWith(buildViewRow(row));
+      }
       return;
     }
 
@@ -282,10 +315,12 @@
   function reloadLoadedWindow() {
     if (earliestLoaded === null || latestLoaded === null) return;
     const scrollTop = container.scrollTop;
-    fetchWindow(earliestLoaded, latestLoaded).then((data) => {
-      renderInitialRows(data.rows);
-      container.scrollTop = scrollTop;
-    });
+    fetchWindow(earliestLoaded, latestLoaded)
+      .then((data) => {
+        renderInitialRows(data.rows);
+        container.scrollTop = scrollTop;
+      })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   function renderInitialRows(rows) {
@@ -351,6 +386,7 @@
         }
         earliestLoaded = start;
       })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE))
       .finally(() => {
         loadingPast = false;
       });
@@ -377,6 +413,7 @@
           reachedFutureLimit = true;
         }
       })
+      .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE))
       .finally(() => {
         loadingFuture = false;
       });
@@ -401,7 +438,8 @@
       earliestLoaded = toDate(data.start);
       latestLoaded = toDate(data.end);
       scrollToToday();
-    });
+    })
+    .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
 
   const addForm = document.getElementById("add-transaction-form");
   if (addForm) {
@@ -436,6 +474,10 @@
           const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(addModalEl) : null;
           if (modal) modal.hide();
           reloadLoadedWindow();
+        })
+        .catch(() => {
+          addError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
+          addError.classList.remove("d-none");
         });
     });
   }

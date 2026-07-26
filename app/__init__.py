@@ -17,11 +17,13 @@ def create_app(config_name=None):
     from app.settings import settings_bp
     from app.transactions import transactions_bp
     from app.cli import register_cli
+    from app.errors import register_error_handlers
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(transactions_bp)
     register_cli(app)
+    register_error_handlers(app)
 
     return app
