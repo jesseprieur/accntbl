@@ -43,6 +43,10 @@ close date, which *does* hit your checking balance on its due date.
 - **Month-end markers**: a virtual row is inserted at the end of every month,
   showing that month's closing balance and the change versus the previous
   month's close.
+- **Color-coded rows**: positive amounts are green and negative amounts are
+  red; rows still attached to a recurring series get a green left border;
+  a negative running balance is highlighted bright red; month-end rows get
+  a grey top border. Detached/one-off rows aren't specially colored.
 
 ## Architecture
 

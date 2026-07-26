@@ -46,3 +46,21 @@ def test_index_renders_transactions_window_centered_on_today(client):
     assert 'data-window-url="/transactions/window"' in body
     assert 'id="transactions-tbody"' in body
     assert "table.js" in body
+
+
+def test_index_uses_bootstrap_toggle_buttons_for_kind(client):
+    response = client.get("/")
+    body = response.get_data(as_text=True)
+
+    assert 'class="btn-check" name="kind" id="add-transaction-kind-cash"' in body
+    assert 'class="btn-check" name="kind" id="add-transaction-kind-credit"' in body
+    assert 'class="form-check-input" type="radio" name="kind"' not in body
+
+
+def test_recurring_series_page_uses_bootstrap_toggle_buttons_for_kind(client):
+    response = client.get("/recurring-series")
+    body = response.get_data(as_text=True)
+
+    assert 'class="btn-check" name="kind" id="add-series-kind-cash"' in body
+    assert 'class="btn-check" name="kind" id="edit-series-kind-cash"' in body
+    assert 'class="form-check-input" type="radio" name="kind"' not in body

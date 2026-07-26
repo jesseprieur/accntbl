@@ -83,7 +83,7 @@ design rationale before implementing any item below.
     - [x] Positive transactions could be green
     - [x] Negative running-total should be bright red
     - [x] Month end rows should be grey or grey bordered and maybe bold;
-- [ ] Use bootstrap-specific components to clean up the UI (eg. radio
+- [x] Use bootstrap-specific components to clean up the UI (eg. radio
       toggle buttons vs radio buttons)
 - [ ] Icons for buttons (edit, save, cancel, settings, recurring series,
       logout, etc.)
