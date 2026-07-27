@@ -36,16 +36,23 @@ current balances is the baseline for the running total.
 - as_of_date (date the starting_balance was true — treated as "today" baseline
   for forward projection; see Open Questions)
 
-### `credit_card_settings`
-Single hardcoded/default card (singleton row) for v1. Multiple physical cards
-are NOT modeled — if the user gets a second card, they track it manually via
-a regular recurring cash expense.
-- id (always 1 row for now)
-- name (e.g. "Default Credit Card")
+### `credit_cards`
+Multiple physical cards supported. Exactly one row must have
+`is_default = true` at all times, enforced at the app layer (not a DB
+constraint, since SQLite partial-unique-index-on-boolean is awkward via
+Alembic batch mode).
+- id
+- name (e.g. "Default Credit Card", "Amex Business")
+- is_default (bool)
 - statement_close_day (int, day of month statement closes)
 - payment_due_offset_days (int, days after close that payment is due)
 - starting_balance (decimal, optional seed for amount currently owed before
-  the app starts tracking Credit +/- transactions)
+  the app starts tracking Credit +/- transactions on this card)
+
+Deleting a card is blocked if any `transactions` or `recurring_series` still
+reference it (must reassign those first) or if it is the current default
+(must promote another card to default first). If only one card exists, it
+cannot be deleted at all.
 
 ### `recurring_series`
 Template for generating repeated transactions.
@@ -53,6 +60,9 @@ Template for generating repeated transactions.
 - name
 - kind (`cash` | `credit`) — determines which column the generated
   occurrences populate
+- credit_card_id (nullable FK to `credit_cards` — required when kind=credit,
+  null when kind=cash; defaults to the current default card at creation time,
+  user may pick a different card in the form)
 - amount (decimal, signed: positive = inflow, negative = outflow)
 - cadence_type (`weekly` | `biweekly` | `monthly` | `semi_monthly` |
   `quarterly` | `yearly` | `custom`)
@@ -68,8 +78,13 @@ recurring occurrences live here.
 - id
 - name
 - kind (`cash` | `credit` — `cash` affects running total directly; `credit`
-  logs spend against the default credit card and does NOT affect running
-  total directly, only via the auto-generated payment-due row)
+  logs spend against a specific credit card and does NOT affect running
+  total directly, only via that card's auto-generated payment-due row)
+- credit_card_id (nullable FK to `credit_cards` — required when kind=credit,
+  null when kind=cash; defaults to the current default card, user may pick
+  a different card when adding/editing the transaction; if generated from a
+  series, inherited from `recurring_series.credit_card_id` unless
+  overridden after detach)
 - amount (decimal, signed: positive = inflow, negative = outflow)
 - date
 - notes (optional)
@@ -87,26 +102,47 @@ recurring occurrences live here.
 
 ## Credit card payment logic
 
-The credit card is NOT a line item you create manually each cycle. Instead:
+A credit card payment-due row is NOT a line item you create manually each
+cycle. Instead, this runs independently **per card**:
 
-1. Statement periods are defined by `statement_close_day`, recurring monthly.
+1. Statement periods are defined by each card's own `statement_close_day`,
+   recurring monthly.
 2. `amount` is negative for money spent on the card, positive for
    refunds. For each closed statement period, sum `amount` on all kind=credit
-   transactions dated within that period.
-3. That sum becomes the `cash_amount` of an auto-generated payment-due
-   transaction, dated `statement_close_day + payment_due_offset_days`, added
-   directly (not subtracted) to the running total — a net-spend period
-   produces a negative sum, which reduces the running total on the due date.
-4. This is recalculated on the fly at render/query time (not persisted as a
-   stored aggregate) — since credit transactions in a period remain editable
-   indefinitely and must auto-recalculate the payment-due amount. Given
-   personal-scale data volume, recomputing per request is cheap and avoids
-   cache-invalidation complexity.
-5. The generated payment-due row behaves like a normal cash row in the table
-   (shows up, affects running total) but is not independently editable/
-   deletable — editing the underlying Credit +/- transactions is how you
-   change it. (Open question: should the user be able to override the due
-   date/amount directly? Default to "no" for v1 — revisit if annoying.)
+   transactions dated within that period **and belonging to that card**
+   (`credit_card_id`).
+3. That sum is the *computed estimate* for that card/period's payment-due
+   row, dated `statement_close_day + payment_due_offset_days` (using that
+   card's own offset), added directly (not subtracted) to the running total
+   — a net-spend period produces a negative sum, which reduces the running
+   total on the due date.
+4. The computed estimate is recalculated on the fly at render/query time
+   (not persisted as a stored aggregate) — since credit transactions in a
+   period remain editable indefinitely and must auto-recalculate the
+   estimate. Given personal-scale data volume, recomputing per request is
+   cheap and avoids cache-invalidation complexity.
+5. **Editable override:** because real-world statements often include fees,
+   interest, or timing quirks the transaction table doesn't capture, the
+   user can overwrite the computed estimate for a given (card, due date)
+   with a manual value, stored in `credit_due_overrides`:
+   - id
+   - credit_card_id (FK)
+   - due_date (date — matches the computed due date for that period)
+   - amount (decimal — the corrected total due, replaces the computed sum)
+   - notes (optional)
+   - unique on (`credit_card_id`, `due_date`)
+   When an override row exists for a (card, due date), the payment-due row
+   uses the override `amount` instead of the computed sum, and is visually
+   marked as "overridden" (vs. "estimated") in the UI. The underlying
+   Credit +/- transactions are unaffected and still shown individually;
+   only the aggregated due-row amount is replaced. Clearing the override
+   (deleting the `credit_due_overrides` row) reverts to the computed
+   estimate.
+6. The generated payment-due row behaves like a normal cash row in the table
+   (shows up, affects running total) but the Credit +/- transactions
+   underneath it are still edited individually — the row itself is not
+   inline-editable like a normal transaction; instead it exposes a distinct
+   "edit estimate" control that writes to `credit_due_overrides`.
 
 ## Running total calculation
 
@@ -198,13 +234,23 @@ password, Flask session-based auth). No self-registration UI needed for v1
 
 - Server-rendered Bootstrap layout, Ajax (fetch) for inline row edits and
   infinite scroll.
+- Settings page manages a list of credit cards (add/edit/delete, mark one as
+  default) rather than a single singleton form; delete is blocked per the
+  rules in the `credit_cards` data model section above.
 - Table loads an initial window of rows around "today", then fetches more via
   Ajax as the user scrolls down (future, up to 1 year out) or up (past
   history).
-- Row edit = inline editable fields (name, cash/credit amount, date, notes)
-  with explicit save/cancel, saved via Ajax PATCH (see "Recurring series
-  editing semantics" for the attached-row detach-on-save behavior).
-- Adding a one-off transaction = a small form/modal on the main table page.
+- Row edit = inline editable fields (name, cash/credit amount, date, notes,
+  and — when kind=credit — a credit card selector defaulting to the current
+  default card) with explicit save/cancel, saved via Ajax PATCH (see
+  "Recurring series editing semantics" for the attached-row detach-on-save
+  behavior).
+- Adding a one-off transaction = a small form/modal on the main table page;
+  choosing kind=credit reveals the credit card selector (default
+  preselected, user may pick another card).
+- Credit card payment-due rows show which card they belong to (when more
+  than one card exists) and an "edit estimate" affordance to set/clear the
+  override in `credit_due_overrides`, distinct from normal row editing.
 - Recurring series management (add/edit/delete) lives on its own
   **Recurring Series page**, separate from the main table — deliberately
   NOT modals on the main table, to keep series-template edits (which
@@ -230,7 +276,5 @@ password, Flask session-based auth). No self-registration UI needed for v1
 - Multiple `checking_accounts` with different `as_of_date` values: v1 assumes
   all accounts' `as_of_date` are effectively "today" at time of entry. If
   accounts drift out of sync, running-total baseline math may need revisiting.
-- Whether to allow direct override of an auto-generated credit card
-  payment-due row (currently: no, derive only from Credit +/- transactions).
 - Currency/timezone: assume single currency (USD) and a single timezone
   (system default) for v1 — no multi-currency/timezone support planned.

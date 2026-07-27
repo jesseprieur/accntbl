@@ -75,7 +75,43 @@ design rationale before implementing any item below.
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form)
 
-## 8. Polish / validation
+## 8. Multiple physical credit cards
+(see specs.md § "Data model" (`credit_cards`, `credit_due_overrides`) and
+§ "Credit card payment logic" for full design)
+- [ ] Migration: `credit_card_settings` singleton → `credit_cards` table
+      (multiple rows), add `is_default` bool; backfill existing row as the
+      default
+- [ ] App-level enforcement that exactly one card is `is_default` at all
+      times (on create/edit/delete)
+- [ ] Add nullable `credit_card_id` FK to `transactions` and
+      `recurring_series` (required when kind=credit, null when kind=cash)
+- [ ] Migration/backfill: existing kind=credit rows point at the (single)
+      pre-existing default card (can just modify the single migration version
+      if no docker-compose volume exists)
+- [ ] Block deleting a card that's still referenced by any transaction/
+      series, or that is the current default (must reassign/promote first);
+      block deleting the last remaining card entirely
+- [ ] Settings page: manage list of credit cards (add/edit/delete, set
+      default) replacing the single-card form
+- [ ] Transaction add/edit form + Recurring Series form: credit card
+      selector, shown only when kind=credit, defaults to the default card,
+      user can choose another
+- [ ] Credit card statement period + payment-due calculators: key by
+      `credit_card_id`, computed independently per card
+- [ ] `credit_due_overrides` model + migration (`credit_card_id`, `due_date`,
+      `amount`, `notes`, unique on card+due_date)
+- [ ] Payment-due row computation: use override amount when present for
+      that (card, due_date), else the computed sum; expose which one it is
+      in the API response
+- [ ] UI: "edit estimate" control on payment-due rows to set/clear the
+      override (distinct from normal inline row editing); visually
+      distinguish "estimated" vs "overridden" rows; show card name on the
+      row when more than one card exists
+- [ ] Update seed script for multi-card sample data
+- [ ] Unit tests: multiple cards, default-card enforcement, per-card
+      statement periods, override precedence, delete-blocking rules
+
+## 9. Polish / validation
 - [x] Color coded rows
     - [x] "Detached"/single transactions are not color-coded
     - [x] Recurring series items have green shaded border
@@ -92,12 +128,12 @@ design rationale before implementing any item below.
       single `amount` column, same shape as `recurring_series`)
 - [x] Basic error handling/flash messages
 
-## 9. Testing & local run
+## 10. Testing & local run
 - [ ] `docker-compose up` brings up app + DB cleanly from scratch
 - [x] Seed script for local dev (sample accounts/transactions)
 - [ ] README instructions verified end-to-end on a clean machine/checkout
 
+
 ## Later (not in scope yet — do not build until asked)
 - [ ] Deployment to AWS Lambda + S3 or GCP Cloud Run + GCS
-- [ ] Multiple physical credit cards
 - [ ] Savings/investment account tracking + transfers into checking
