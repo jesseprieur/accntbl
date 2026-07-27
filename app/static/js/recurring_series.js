@@ -12,13 +12,6 @@
     custom: "Custom",
   };
 
-  function escapeHtml(value) {
-    return String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
   function cadenceLabel(series) {
     const label = CADENCE_LABELS[series.cadence_type] || series.cadence_type;
     if (series.cadence_type === "custom") {
@@ -31,13 +24,13 @@
     const tr = document.createElement("tr");
     tr.dataset.id = series.id;
     tr.innerHTML = `
-      <td>${escapeHtml(series.name)}</td>
+      <td>${Escape.html(series.name)}</td>
       <td>${series.kind}</td>
       <td>${series.amount}</td>
       <td>${cadenceLabel(series)}</td>
       <td>${series.start_date}</td>
       <td>${series.end_date || ""}</td>
-      <td>${escapeHtml(series.notes || "")}</td>
+      <td>${Escape.html(series.notes || "")}</td>
       <td class="text-nowrap">
         <button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit"><i class="bi bi-pencil"></i> Edit</button>
         <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete"><i class="bi bi-trash"></i> Delete</button>
@@ -62,13 +55,15 @@
 
   loadSeries();
 
-  const seriesCadenceSelect = document.getElementById("add-series-cadence");
-  const seriesCustomFields = document.getElementById("add-series-custom-fields");
-  function toggleSeriesCustomFields() {
-    if (seriesCadenceSelect && seriesCustomFields) {
-      seriesCustomFields.classList.toggle("d-none", seriesCadenceSelect.value !== "custom");
+  function toggleCustomFields(select, fields) {
+    if (select && fields) {
+      fields.classList.toggle("d-none", select.value !== "custom");
     }
   }
+
+  const seriesCadenceSelect = document.getElementById("add-series-cadence");
+  const seriesCustomFields = document.getElementById("add-series-custom-fields");
+  const toggleSeriesCustomFields = () => toggleCustomFields(seriesCadenceSelect, seriesCustomFields);
   if (seriesCadenceSelect) {
     seriesCadenceSelect.addEventListener("change", toggleSeriesCustomFields);
     toggleSeriesCustomFields();
@@ -127,11 +122,8 @@
   const editSeriesCadenceSelect = document.getElementById("edit-series-cadence");
   const editSeriesCustomFields = document.getElementById("edit-series-custom-fields");
 
-  function toggleEditSeriesCustomFields() {
-    if (editSeriesCadenceSelect && editSeriesCustomFields) {
-      editSeriesCustomFields.classList.toggle("d-none", editSeriesCadenceSelect.value !== "custom");
-    }
-  }
+  const toggleEditSeriesCustomFields = () =>
+    toggleCustomFields(editSeriesCadenceSelect, editSeriesCustomFields);
   if (editSeriesCadenceSelect) {
     editSeriesCadenceSelect.addEventListener("change", toggleEditSeriesCustomFields);
   }

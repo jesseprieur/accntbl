@@ -36,20 +36,19 @@
     return value ? Number(value).toFixed(2) : "";
   }
 
-  function escapeAttr(value) {
-    return String(value == null ? "" : value).replace(/"/g, "&quot;");
+  function spanWithClass(formatted, cls) {
+    return `<span class="${cls}">${formatted}</span>`;
   }
 
   function amountSpan(value) {
     const formatted = formatAmount(value);
     if (!formatted) return "";
-    return `<span class="${ColorCoding.amountClass(value)}">${formatted}</span>`;
+    return spanWithClass(formatted, ColorCoding.amountClass(value));
   }
 
   function runningTotalSpan(row) {
     if (row.running_total == null) return "";
-    const cls = ColorCoding.runningTotalClass(row.is_negative);
-    return `<span class="${cls}">${formatAmount(row.running_total)}</span>`;
+    return spanWithClass(formatAmount(row.running_total), ColorCoding.runningTotalClass(row.is_negative));
   }
 
   // Raw row data keyed by transaction id, so an in-progress edit can be
@@ -108,12 +107,12 @@
     tr.dataset.date = row.date;
     tr.dataset.id = row.id;
     tr.innerHTML = `
-      <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${escapeAttr(row.date)}" required></td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${escapeAttr(row.name)}" required></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${escapeAttr(formatAmount(row.cash_amount))}"></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${escapeAttr(formatAmount(row.credit_amount))}"></td>
+      <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${Escape.html(row.date)}" required></td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${Escape.html(row.name)}" required></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${Escape.html(formatAmount(row.cash_amount))}"></td>
+      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${Escape.html(formatAmount(row.credit_amount))}"></td>
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${escapeAttr(row.notes || "")}"></td>
+      <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${Escape.html(row.notes || "")}"></td>
       <td class="text-nowrap">
         <button type="button" class="btn btn-primary btn-sm" data-action="save"><i class="bi bi-check-lg"></i> Save</button>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel"><i class="bi bi-x-lg"></i> Cancel</button>
@@ -125,7 +124,7 @@
   function buildEditRowErrorRow(message) {
     const tr = document.createElement("tr");
     tr.classList.add("edit-row-error");
-    tr.innerHTML = `<td colspan="7" class="text-danger small py-1">${escapeAttr(message)}</td>`;
+    tr.innerHTML = `<td colspan="7" class="text-danger small py-1">${Escape.html(message)}</td>`;
     return tr;
   }
 

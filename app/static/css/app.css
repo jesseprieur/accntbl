@@ -1,7 +1,7 @@
 /* Row/cell color coding for the transactions table (see specs.md § Month-end markers). */
 
 .tx-amount-positive {
-  color: #198754;
+  color: var(--bs-success);
 }
 
 .tx-amount-negative {
@@ -9,14 +9,14 @@
 }
 
 .running-total-negative {
-  color: #dc3545;
+  color: var(--bs-danger);
   font-weight: 700;
 }
 
 .series-attached-row {
-  border-left: 4px solid #198754;
+  border-left: 4px solid var(--bs-success);
 }
 
 .month-end-row {
-  border-top: 2px solid #6c757d;
+  border-top: 2px solid var(--bs-secondary);
 }
