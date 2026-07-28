@@ -92,6 +92,23 @@ class CreditCard(db.Model):
         return None
 
 
+class CreditDueOverride(db.Model):
+    __tablename__ = "credit_due_overrides"
+    __table_args__ = (
+        db.UniqueConstraint("credit_card_id", "due_date", name="uq_credit_due_override_card_date"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    credit_card_id = db.Column(
+        db.Integer, db.ForeignKey("credit_cards.id"), nullable=False
+    )
+    due_date = db.Column(db.Date, nullable=False)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+    credit_card = db.relationship("CreditCard")
+
+
 class RecurringSeries(db.Model):
     __tablename__ = "recurring_series"
 

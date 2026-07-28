@@ -4,10 +4,13 @@ import pytest
 
 from app import create_app
 from app.extensions import db
+import sqlalchemy.exc
+
 from app.models import (
     CadenceType,
     CheckingAccount,
     CreditCard,
+    CreditDueOverride,
     Kind,
     OccurrenceStatus,
     RecurringSeries,
@@ -302,3 +305,52 @@ def test_credit_transaction_and_series_link_to_credit_card(app):
     fetched_series = RecurringSeries.query.filter_by(name="Subscription").one()
     assert fetched_transaction.credit_card.name == "Amex Business"
     assert fetched_series.credit_card.name == "Amex Business"
+
+
+def test_credit_due_override_roundtrip(app):
+    card = CreditCard(
+        name="Amex Business",
+        is_default=True,
+        statement_close_day=10,
+        payment_due_offset_days=20,
+    )
+    db.session.add(card)
+    db.session.flush()
+
+    override = CreditDueOverride(
+        credit_card_id=card.id,
+        due_date=datetime.date(2026, 2, 9),
+        amount="-475.50",
+        notes="Included annual fee",
+    )
+    db.session.add(override)
+    db.session.commit()
+
+    fetched = CreditDueOverride.query.one()
+    assert fetched.credit_card.name == "Amex Business"
+    assert fetched.amount == -475.50
+    assert fetched.notes == "Included annual fee"
+
+
+def test_credit_due_override_unique_on_card_and_due_date(app):
+    card = CreditCard(
+        name="Amex Business",
+        is_default=True,
+        statement_close_day=10,
+        payment_due_offset_days=20,
+    )
+    db.session.add(card)
+    db.session.flush()
+
+    due_date = datetime.date(2026, 2, 9)
+    db.session.add(
+        CreditDueOverride(credit_card_id=card.id, due_date=due_date, amount="-475.50")
+    )
+    db.session.commit()
+
+    db.session.add(
+        CreditDueOverride(credit_card_id=card.id, due_date=due_date, amount="-500.00")
+    )
+    with pytest.raises(sqlalchemy.exc.IntegrityError):
+        db.session.commit()
+    db.session.rollback()
