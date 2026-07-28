@@ -5,7 +5,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app.auth import login_required
 from app.extensions import db
-from app.models import CheckingAccount, CreditCardSettings
+from app.models import CheckingAccount, CreditCard
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
 
@@ -35,7 +35,7 @@ def _parse_int(value, field_label):
 @login_required
 def index():
     checking_accounts = CheckingAccount.query.order_by(CheckingAccount.id).all()
-    credit_card = CreditCardSettings.query.first()
+    credit_card = CreditCard.query.filter_by(is_default=True).first()
     return render_template(
         "settings.html",
         checking_accounts=checking_accounts,
@@ -125,15 +125,16 @@ def update_credit_card():
             else None
         )
 
-        credit_card = CreditCardSettings.query.first()
+        credit_card = CreditCard.query.filter_by(is_default=True).first()
         if credit_card is None:
-            credit_card = CreditCardSettings(id=1, name=name)
+            credit_card = CreditCard(name=name)
             db.session.add(credit_card)
 
         credit_card.name = name
         credit_card.statement_close_day = statement_close_day
         credit_card.payment_due_offset_days = payment_due_offset_days
         credit_card.starting_balance = starting_balance
+        CreditCard.set_default(credit_card)
         db.session.commit()
     except ValueError as exc:
         flash(str(exc))

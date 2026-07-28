@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import CheckingAccount, CreditCardSettings, User
+from app.models import CheckingAccount, CreditCard, User
 
 
 @pytest.fixture
@@ -126,7 +126,7 @@ def test_create_credit_card_settings(client, app):
     assert response.status_code == 302
 
     with app.app_context():
-        settings = CreditCardSettings.query.one()
+        settings = CreditCard.query.one()
         assert settings.statement_close_day == 15
         assert settings.payment_due_offset_days == 20
         assert settings.starting_balance == Decimal("250.00")
@@ -135,9 +135,10 @@ def test_create_credit_card_settings(client, app):
 def test_update_credit_card_settings_overwrites_singleton(client, app):
     with app.app_context():
         db.session.add(
-            CreditCardSettings(
+            CreditCard(
                 id=1,
                 name="Old Card",
+                is_default=True,
                 statement_close_day=1,
                 payment_due_offset_days=10,
                 starting_balance=Decimal("0.00"),
@@ -156,8 +157,8 @@ def test_update_credit_card_settings_overwrites_singleton(client, app):
     )
 
     with app.app_context():
-        assert CreditCardSettings.query.count() == 1
-        settings = CreditCardSettings.query.one()
+        assert CreditCard.query.count() == 1
+        settings = CreditCard.query.one()
         assert settings.name == "Updated Card"
         assert settings.statement_close_day == 20
 
@@ -173,4 +174,4 @@ def test_credit_card_settings_rejects_invalid_close_day(client, app):
     )
 
     with app.app_context():
-        assert CreditCardSettings.query.first() is None
+        assert CreditCard.query.first() is None

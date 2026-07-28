@@ -25,9 +25,10 @@ def upgrade():
     sa.Column('as_of_date', sa.Date(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('credit_card_settings',
+    op.create_table('credit_cards',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('is_default', sa.Boolean(), nullable=False),
     sa.Column('statement_close_day', sa.Integer(), nullable=False),
     sa.Column('payment_due_offset_days', sa.Integer(), nullable=False),
     sa.Column('starting_balance', sa.Numeric(precision=12, scale=2), nullable=True),
@@ -73,6 +74,6 @@ def downgrade():
     op.drop_table('transactions')
     op.drop_table('users')
     op.drop_table('recurring_series')
-    op.drop_table('credit_card_settings')
+    op.drop_table('credit_cards')
     op.drop_table('checking_accounts')
     # ### end Alembic commands ###

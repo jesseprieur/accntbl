@@ -48,14 +48,27 @@ class CheckingAccount(db.Model):
     as_of_date = db.Column(db.Date, nullable=False)
 
 
-class CreditCardSettings(db.Model):
-    __tablename__ = "credit_card_settings"
+class CreditCard(db.Model):
+    __tablename__ = "credit_cards"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    is_default = db.Column(db.Boolean, nullable=False, default=False)
     statement_close_day = db.Column(db.Integer, nullable=False)
     payment_due_offset_days = db.Column(db.Integer, nullable=False)
     starting_balance = db.Column(db.Numeric(12, 2), nullable=True)
+
+    @classmethod
+    def set_default(cls, card):
+        """Mark `card` as the one default card, unsetting every other row.
+
+        App-level enforcement (see specs.md § `credit_cards`): SQLite's
+        partial-unique-index-on-boolean support is awkward via Alembic batch
+        mode, so "exactly one default" is enforced here instead of a DB
+        constraint.
+        """
+        cls.query.filter(cls.id != card.id).update({"is_default": False})
+        card.is_default = True
 
 
 class RecurringSeries(db.Model):

@@ -7,7 +7,7 @@ from app.extensions import db
 from app.models import (
     CadenceType,
     CheckingAccount,
-    CreditCardSettings,
+    CreditCard,
     Kind,
     OccurrenceStatus,
     RecurringSeries,
@@ -51,7 +51,7 @@ def test_checking_account_roundtrip(app):
 
 def test_credit_card_settings_roundtrip(app):
     db.session.add(
-        CreditCardSettings(
+        CreditCard(
             name="Default Credit Card",
             statement_close_day=15,
             payment_due_offset_days=21,
@@ -60,9 +60,34 @@ def test_credit_card_settings_roundtrip(app):
     )
     db.session.commit()
 
-    settings = CreditCardSettings.query.one()
+    settings = CreditCard.query.one()
     assert settings.statement_close_day == 15
     assert settings.payment_due_offset_days == 21
+
+
+def test_credit_card_set_default_unsets_other_cards(app):
+    first = CreditCard(
+        name="First Card",
+        is_default=True,
+        statement_close_day=1,
+        payment_due_offset_days=10,
+    )
+    second = CreditCard(
+        name="Second Card",
+        is_default=False,
+        statement_close_day=15,
+        payment_due_offset_days=20,
+    )
+    db.session.add_all([first, second])
+    db.session.commit()
+
+    CreditCard.set_default(second)
+    db.session.commit()
+
+    db.session.refresh(first)
+    assert first.is_default is False
+    assert second.is_default is True
+    assert CreditCard.query.filter_by(is_default=True).count() == 1
 
 
 def test_recurring_series_generated_transaction_is_linked_and_attached(app):

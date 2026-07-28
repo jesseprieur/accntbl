@@ -9,7 +9,7 @@ from app.extensions import db
 from app.models import (
     CadenceType,
     CheckingAccount,
-    CreditCardSettings,
+    CreditCard,
     Kind,
     OccurrenceStatus,
     RecurringSeries,
@@ -107,9 +107,10 @@ def test_window_includes_virtual_credit_card_payment_rows(client, app):
         db.session.add(CheckingAccount(
             name="Primary", starting_balance=Decimal("1000.00"), as_of_date=dt.date(2026, 1, 1)
         ))
-        db.session.add(CreditCardSettings(
+        db.session.add(CreditCard(
             id=1,
             name="Default Credit Card",
+            is_default=True,
             statement_close_day=15,
             payment_due_offset_days=10,
             starting_balance=Decimal("0"),

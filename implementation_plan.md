@@ -78,10 +78,10 @@ design rationale before implementing any item below.
 ## 8. Multiple physical credit cards
 (see specs.md § "Data model" (`credit_cards`, `credit_due_overrides`) and
 § "Credit card payment logic" for full design)
-- [ ] Migration: `credit_card_settings` singleton → `credit_cards` table
+- [x] Migration: `credit_card_settings` singleton → `credit_cards` table
       (multiple rows), add `is_default` bool; backfill existing row as the
       default
-- [ ] App-level enforcement that exactly one card is `is_default` at all
+- [x] App-level enforcement that exactly one card is `is_default` at all
       times (on create/edit/delete)
 - [ ] Add nullable `credit_card_id` FK to `transactions` and
       `recurring_series` (required when kind=credit, null when kind=cash)

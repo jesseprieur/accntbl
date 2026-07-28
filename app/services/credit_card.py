@@ -1,6 +1,6 @@
 """Credit card statement period calculator and payment-due amount calculator.
 
-Given a `CreditCardSettings` row and a date range, compute the sequence of
+Given a `CreditCard` row and a date range, compute the sequence of
 monthly statement periods (start, close_date, due_date) whose close_date
 falls within the range, and the virtual cash payment-due transaction each
 period generates. See specs.md's "Credit card payment logic" section.

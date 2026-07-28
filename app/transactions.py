@@ -16,7 +16,7 @@ from app.extensions import db
 from app.models import (
     CadenceType,
     CheckingAccount,
-    CreditCardSettings,
+    CreditCard,
     CustomIntervalUnit,
     Kind,
     OccurrenceStatus,
@@ -86,13 +86,13 @@ def window():
     ).all()
 
     checking_accounts = CheckingAccount.query.all()
-    credit_card_settings = CreditCardSettings.query.first()
+    credit_card = CreditCard.query.filter_by(is_default=True).first()
 
     full_range_start = min((t.date for t in history), default=start)
     full_range_start = min(full_range_start, start)
 
     ledger = compute_running_total(
-        checking_accounts, history, credit_card_settings, full_range_start, end
+        checking_accounts, history, credit_card, full_range_start, end
     )
 
     rows = [

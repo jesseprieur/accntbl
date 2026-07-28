@@ -8,7 +8,7 @@ from app.extensions import db
 from app.models import (
     CadenceType,
     CheckingAccount,
-    CreditCardSettings,
+    CreditCard,
     Kind,
     OccurrenceStatus,
     RecurringSeries,
@@ -56,9 +56,10 @@ def seed_demo_data_command():
         )
     )
     db.session.add(
-        CreditCardSettings(
+        CreditCard(
             id=1,
             name="Default Credit Card",
+            is_default=True,
             statement_close_day=20,
             payment_due_offset_days=15,
             starting_balance=Decimal("340.00"),
