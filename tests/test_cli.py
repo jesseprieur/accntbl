@@ -4,7 +4,7 @@ import pytest
 
 from app import create_app
 from app.extensions import db
-from app.models import CheckingAccount, CreditCard, RecurringSeries, Transaction, User
+from app.models import CheckingAccount, CreditCard, Kind, RecurringSeries, Transaction, User
 
 
 @pytest.fixture
@@ -68,10 +68,26 @@ def test_seed_demo_data_populates_accounts_series_and_transactions(app, runner):
     assert result.exit_code == 0
     with app.app_context():
         assert CheckingAccount.query.count() == 1
-        assert CreditCard.query.count() == 1
-        assert RecurringSeries.query.count() == 3
-        assert Transaction.query.count() > 3
-        assert Transaction.query.filter_by(recurring_series_id=None).count() == 2
+        assert CreditCard.query.count() == 2
+        assert CreditCard.query.filter_by(is_default=True).count() == 1
+        assert RecurringSeries.query.count() == 4
+        assert Transaction.query.count() > 4
+        assert Transaction.query.filter_by(recurring_series_id=None).count() == 3
+
+        default_card = CreditCard.query.filter_by(is_default=True).one()
+        other_card = CreditCard.query.filter(CreditCard.id != default_card.id).one()
+
+        credit_transactions = Transaction.query.filter_by(kind=Kind.credit).all()
+        assert credit_transactions
+        assert all(t.credit_card_id is not None for t in credit_transactions)
+        assert {t.credit_card_id for t in credit_transactions} == {
+            default_card.id,
+            other_card.id,
+        }
+
+        credit_series = RecurringSeries.query.filter_by(kind=Kind.credit).all()
+        assert credit_series
+        assert all(s.credit_card_id is not None for s in credit_series)
 
 
 def test_seed_demo_data_is_a_noop_when_checking_accounts_already_exist(app, runner):

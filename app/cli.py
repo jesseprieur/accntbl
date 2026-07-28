@@ -55,16 +55,24 @@ def seed_demo_data_command():
             as_of_date=today,
         )
     )
-    db.session.add(
-        CreditCard(
-            id=1,
-            name="Default Credit Card",
-            is_default=True,
-            statement_close_day=20,
-            payment_due_offset_days=15,
-            starting_balance=Decimal("340.00"),
-        )
+    default_card = CreditCard(
+        id=1,
+        name="Default Credit Card",
+        is_default=True,
+        statement_close_day=20,
+        payment_due_offset_days=15,
+        starting_balance=Decimal("340.00"),
     )
+    db.session.add(default_card)
+    rewards_card = CreditCard(
+        id=2,
+        name="Rewards Visa",
+        is_default=False,
+        statement_close_day=5,
+        payment_due_offset_days=21,
+        starting_balance=Decimal("125.50"),
+    )
+    db.session.add(rewards_card)
 
     horizon = today + timedelta(days=365)
     series_specs = [
@@ -88,6 +96,15 @@ def seed_demo_data_command():
             amount=Decimal("-15.99"),
             cadence_type=CadenceType.monthly,
             start_date=today.replace(day=1),
+            credit_card=default_card,
+        ),
+        dict(
+            name="Gym membership",
+            kind=Kind.credit,
+            amount=Decimal("-45.00"),
+            cadence_type=CadenceType.monthly,
+            start_date=today.replace(day=1),
+            credit_card=rewards_card,
         ),
     ]
 
@@ -102,6 +119,7 @@ def seed_demo_data_command():
             start_date=spec["start_date"],
             end_date=None,
             notes=None,
+            credit_card_id=spec.get("credit_card").id if spec.get("credit_card") else None,
         )
         db.session.add(series)
         db.session.flush()
@@ -115,6 +133,7 @@ def seed_demo_data_command():
                     date=occurrence_date,
                     recurring_series_id=series.id,
                     occurrence_status=OccurrenceStatus.attached,
+                    credit_card_id=series.credit_card_id,
                 )
             )
 
@@ -132,6 +151,16 @@ def seed_demo_data_command():
             kind=Kind.credit,
             amount=Decimal("-89.00"),
             date=today + timedelta(days=5),
+            credit_card_id=default_card.id,
+        )
+    )
+    db.session.add(
+        Transaction(
+            name="New headphones",
+            kind=Kind.credit,
+            amount=Decimal("-199.00"),
+            date=today - timedelta(days=3),
+            credit_card_id=rewards_card.id,
         )
     )
 

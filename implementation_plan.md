@@ -107,7 +107,7 @@ design rationale before implementing any item below.
       override (distinct from normal inline row editing); visually
       distinguish "estimated" vs "overridden" rows; show card name on the
       row when more than one card exists
-- [ ] Update seed script for multi-card sample data
+- [x] Update seed script for multi-card sample data
 - [ ] Unit tests: multiple cards, default-card enforcement, per-card
       statement periods, override precedence, delete-blocking rules
 
