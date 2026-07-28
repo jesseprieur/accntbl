@@ -140,3 +140,18 @@ def update_credit_card():
         flash(str(exc))
 
     return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/credit-cards/<int:card_id>/delete", methods=["POST"])
+@login_required
+def delete_credit_card(card_id):
+    card = CreditCard.query.get_or_404(card_id)
+
+    blocker = card.deletion_blocker()
+    if blocker:
+        flash(blocker)
+    else:
+        db.session.delete(card)
+        db.session.commit()
+
+    return redirect(url_for("settings.index"))

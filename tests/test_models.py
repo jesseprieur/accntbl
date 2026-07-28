@@ -90,6 +90,118 @@ def test_credit_card_set_default_unsets_other_cards(app):
     assert CreditCard.query.filter_by(is_default=True).count() == 1
 
 
+def test_deletion_blocker_none_when_second_non_default_card_is_unreferenced(app):
+    first = CreditCard(
+        name="First Card",
+        is_default=True,
+        statement_close_day=1,
+        payment_due_offset_days=10,
+    )
+    second = CreditCard(
+        name="Second Card",
+        is_default=False,
+        statement_close_day=15,
+        payment_due_offset_days=20,
+    )
+    db.session.add_all([first, second])
+    db.session.commit()
+
+    assert second.deletion_blocker() is None
+
+
+def test_deletion_blocker_blocks_last_remaining_card(app):
+    only_card = CreditCard(
+        name="Only Card",
+        is_default=True,
+        statement_close_day=1,
+        payment_due_offset_days=10,
+    )
+    db.session.add(only_card)
+    db.session.commit()
+
+    assert only_card.deletion_blocker() is not None
+
+
+def test_deletion_blocker_blocks_default_card_when_others_exist(app):
+    first = CreditCard(
+        name="First Card",
+        is_default=True,
+        statement_close_day=1,
+        payment_due_offset_days=10,
+    )
+    second = CreditCard(
+        name="Second Card",
+        is_default=False,
+        statement_close_day=15,
+        payment_due_offset_days=20,
+    )
+    db.session.add_all([first, second])
+    db.session.commit()
+
+    assert first.deletion_blocker() is not None
+
+
+def test_deletion_blocker_blocks_card_referenced_by_transaction(app):
+    first = CreditCard(
+        name="First Card",
+        is_default=True,
+        statement_close_day=1,
+        payment_due_offset_days=10,
+    )
+    second = CreditCard(
+        name="Second Card",
+        is_default=False,
+        statement_close_day=15,
+        payment_due_offset_days=20,
+    )
+    db.session.add_all([first, second])
+    db.session.flush()
+
+    db.session.add(
+        Transaction(
+            name="Groceries",
+            kind=Kind.credit,
+            amount="-50.00",
+            date=datetime.date(2026, 1, 5),
+            credit_card_id=second.id,
+        )
+    )
+    db.session.commit()
+
+    assert second.deletion_blocker() is not None
+
+
+def test_deletion_blocker_blocks_card_referenced_by_recurring_series(app):
+    first = CreditCard(
+        name="First Card",
+        is_default=True,
+        statement_close_day=1,
+        payment_due_offset_days=10,
+    )
+    second = CreditCard(
+        name="Second Card",
+        is_default=False,
+        statement_close_day=15,
+        payment_due_offset_days=20,
+    )
+    db.session.add_all([first, second])
+    db.session.flush()
+
+    db.session.add(
+        RecurringSeries(
+            name="Subscription",
+            kind=Kind.credit,
+            amount="-9.99",
+            cadence_type=CadenceType.monthly,
+            start_date=datetime.date(2026, 1, 1),
+            credit_card_id=second.id,
+        )
+    )
+    db.session.commit()
+
+    assert second.deletion_blocker() is not None
+
+
 def test_recurring_series_generated_transaction_is_linked_and_attached(app):
     series = RecurringSeries(
         name="Paycheck",

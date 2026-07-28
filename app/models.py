@@ -70,6 +70,27 @@ class CreditCard(db.Model):
         cls.query.filter(cls.id != card.id).update({"is_default": False})
         card.is_default = True
 
+    def deletion_blocker(self):
+        """Return a reason this card can't be deleted, or None if it can.
+
+        See specs.md § `credit_cards` for the three block conditions. The
+        "only one card" check is ordered first since a lone card is always
+        the default, and the default-specific message ("promote another
+        card first") would be misleading/impossible in that case.
+        """
+        if CreditCard.query.count() <= 1:
+            return "Cannot delete the last remaining credit card."
+        if Transaction.query.filter_by(credit_card_id=self.id).count() > 0 or (
+            RecurringSeries.query.filter_by(credit_card_id=self.id).count() > 0
+        ):
+            return (
+                "Cannot delete a credit card that is still referenced by "
+                "transactions or recurring series. Reassign them first."
+            )
+        if self.is_default:
+            return "Cannot delete the default credit card. Promote another card to default first."
+        return None
+
 
 class RecurringSeries(db.Model):
     __tablename__ = "recurring_series"

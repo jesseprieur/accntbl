@@ -88,7 +88,7 @@ design rationale before implementing any item below.
 - [x] Migration/backfill: existing kind=credit rows point at the (single)
       pre-existing default card (can just modify the single migration version
       if no docker-compose volume exists)
-- [ ] Block deleting a card that's still referenced by any transaction/
+- [x] Block deleting a card that's still referenced by any transaction/
       series, or that is the current default (must reassign/promote first);
       block deleting the last remaining card entirely
 - [ ] Settings page: manage list of credit cards (add/edit/delete, set
