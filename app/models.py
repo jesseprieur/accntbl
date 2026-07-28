@@ -84,8 +84,12 @@ class RecurringSeries(db.Model):
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    credit_card_id = db.Column(
+        db.Integer, db.ForeignKey("credit_cards.id"), nullable=True
+    )
 
     transactions = db.relationship("Transaction", back_populates="recurring_series")
+    credit_card = db.relationship("CreditCard")
 
 
 class Transaction(db.Model):
@@ -103,5 +107,9 @@ class Transaction(db.Model):
     occurrence_status = db.Column(
         db.Enum(OccurrenceStatus), nullable=True, default=None
     )
+    credit_card_id = db.Column(
+        db.Integer, db.ForeignKey("credit_cards.id"), nullable=True
+    )
 
     recurring_series = db.relationship("RecurringSeries", back_populates="transactions")
+    credit_card = db.relationship("CreditCard")

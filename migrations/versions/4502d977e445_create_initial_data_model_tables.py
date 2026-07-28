@@ -45,6 +45,8 @@ def upgrade():
     sa.Column('start_date', sa.Date(), nullable=False),
     sa.Column('end_date', sa.Date(), nullable=True),
     sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('credit_card_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['credit_card_id'], ['credit_cards.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('users',
@@ -63,7 +65,9 @@ def upgrade():
     sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('recurring_series_id', sa.Integer(), nullable=True),
     sa.Column('occurrence_status', sa.Enum('attached', 'detached', 'skipped', name='occurrencestatus'), nullable=True),
+    sa.Column('credit_card_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['recurring_series_id'], ['recurring_series.id'], ),
+    sa.ForeignKeyConstraint(['credit_card_id'], ['credit_cards.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###

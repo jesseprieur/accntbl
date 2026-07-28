@@ -83,9 +83,9 @@ design rationale before implementing any item below.
       default
 - [x] App-level enforcement that exactly one card is `is_default` at all
       times (on create/edit/delete)
-- [ ] Add nullable `credit_card_id` FK to `transactions` and
+- [x] Add nullable `credit_card_id` FK to `transactions` and
       `recurring_series` (required when kind=credit, null when kind=cash)
-- [ ] Migration/backfill: existing kind=credit rows point at the (single)
+- [x] Migration/backfill: existing kind=credit rows point at the (single)
       pre-existing default card (can just modify the single migration version
       if no docker-compose volume exists)
 - [ ] Block deleting a card that's still referenced by any transaction/

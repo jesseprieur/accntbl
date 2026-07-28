@@ -132,3 +132,61 @@ def test_one_off_transaction_has_no_series(app):
     transaction = Transaction.query.one()
     assert transaction.recurring_series_id is None
     assert transaction.occurrence_status is None
+
+
+def test_cash_transaction_and_series_have_no_credit_card_by_default(app):
+    db.session.add(
+        Transaction(
+            name="Groceries",
+            kind=Kind.cash,
+            amount="-75.25",
+            date=datetime.date(2026, 7, 19),
+        )
+    )
+    db.session.add(
+        RecurringSeries(
+            name="Paycheck",
+            kind=Kind.cash,
+            amount="2000.00",
+            cadence_type=CadenceType.biweekly,
+            start_date=datetime.date(2026, 1, 1),
+        )
+    )
+    db.session.commit()
+
+    assert Transaction.query.one().credit_card_id is None
+    assert RecurringSeries.query.one().credit_card_id is None
+
+
+def test_credit_transaction_and_series_link_to_credit_card(app):
+    card = CreditCard(
+        name="Amex Business",
+        is_default=True,
+        statement_close_day=10,
+        payment_due_offset_days=20,
+    )
+    db.session.add(card)
+    db.session.flush()
+
+    transaction = Transaction(
+        name="Office supplies",
+        kind=Kind.credit,
+        amount="-50.00",
+        date=datetime.date(2026, 7, 19),
+        credit_card_id=card.id,
+    )
+    series = RecurringSeries(
+        name="Subscription",
+        kind=Kind.credit,
+        amount="-9.99",
+        cadence_type=CadenceType.monthly,
+        start_date=datetime.date(2026, 1, 1),
+        credit_card_id=card.id,
+    )
+    db.session.add_all([transaction, series])
+    db.session.commit()
+
+    fetched_transaction = Transaction.query.filter_by(name="Office supplies").one()
+    fetched_series = RecurringSeries.query.filter_by(name="Subscription").one()
+    assert fetched_transaction.credit_card.name == "Amex Business"
+    assert fetched_series.credit_card.name == "Amex Business"
