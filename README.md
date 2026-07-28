@@ -106,7 +106,7 @@ migrations. To roll back the most recent migration, use
 
 To try the app with sample data instead of starting from scratch, run
 `docker compose exec web flask seed-demo-data` — it seeds a checking
-account, credit card settings, a few recurring series, and a couple of
+account, a default credit card, a few recurring series, and a couple of
 one-off transactions. It's a no-op (refuses to run) if any checking
 account already exists, so it's safe against accidentally overwriting
 real data.
