@@ -48,7 +48,7 @@ design rationale before implementing any item below.
       starting balance)
 
 ## 5. Recurring Series page
-- [ ] View/edit/delete/add recurring series
+- [x] View/edit/delete/add recurring series
 
 ## 6. Main table view
 - [x] Backend endpoint: paginated transaction window by date range
@@ -130,7 +130,7 @@ design rationale before implementing any item below.
 
 ## 10. Testing & local run
 - [ ] `docker-compose up` brings up app + DB cleanly from scratch
-- [x] Seed script for local dev (sample accounts/transactions)
+- [ ] Seed script for local dev (sample accounts/transactions)
 - [ ] README instructions verified end-to-end on a clean machine/checkout
 
 
