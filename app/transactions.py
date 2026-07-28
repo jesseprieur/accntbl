@@ -114,13 +114,13 @@ def window():
     ).all()
 
     checking_accounts = CheckingAccount.query.all()
-    credit_card = CreditCard.query.filter_by(is_default=True).first()
+    credit_cards = CreditCard.query.all()
 
     full_range_start = min((t.date for t in history), default=start)
     full_range_start = min(full_range_start, start)
 
     ledger = compute_running_total(
-        checking_accounts, history, credit_card, full_range_start, end
+        checking_accounts, history, credit_cards, full_range_start, end
     )
 
     rows = [

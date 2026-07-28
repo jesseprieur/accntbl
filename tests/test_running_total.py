@@ -10,8 +10,9 @@ def make_account(starting_balance):
     return SimpleNamespace(starting_balance=Decimal(str(starting_balance)))
 
 
-def make_settings(statement_close_day, payment_due_offset_days=20, name="Default Credit Card"):
+def make_settings(statement_close_day, payment_due_offset_days=20, name="Default Credit Card", id=1):
     return SimpleNamespace(
+        id=id,
         name=name,
         statement_close_day=statement_close_day,
         payment_due_offset_days=payment_due_offset_days,
@@ -19,7 +20,7 @@ def make_settings(statement_close_day, payment_due_offset_days=20, name="Default
 
 
 def make_transaction(
-    name, date, cash_amount=None, credit_amount=None, occurrence_status=None
+    name, date, cash_amount=None, credit_amount=None, occurrence_status=None, credit_card_id=1
 ):
     kind = Kind.cash if cash_amount is not None else Kind.credit
     amount = cash_amount if cash_amount is not None else credit_amount
@@ -29,6 +30,7 @@ def make_transaction(
         kind=kind,
         amount=amount,
         occurrence_status=occurrence_status,
+        credit_card_id=credit_card_id if kind == Kind.credit else None,
     )
 
 
@@ -111,7 +113,7 @@ def test_credit_card_payment_due_row_is_merged_into_ledger():
         ),
     ]
     rows = compute_running_total(
-        accounts, transactions, settings, dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
+        accounts, transactions, [settings], dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
     )
     # `coffee` is a credit-only transaction, so it still appears in the
     # ledger as its own row (cash_amount 0, no effect on the total), while
@@ -133,7 +135,7 @@ def test_credit_card_refund_increases_running_total_on_due_date():
         make_transaction("returned item", dt.date(2026, 1, 5), credit_amount=Decimal("30")),
     ]
     rows = compute_running_total(
-        accounts, transactions, settings, dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
+        accounts, transactions, [settings], dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
     )
     payment_row = next(r for r in rows if r.name == "Default Credit Card Payment")
     assert payment_row.cash_amount == Decimal("30")
@@ -149,9 +151,25 @@ def test_real_row_ordered_before_virtual_row_on_same_date():
         ),
     ]
     rows = compute_running_total(
-        accounts, transactions, settings, dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
+        accounts, transactions, [settings], dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
     )
     assert [r.name for r in rows] == ["same day cash", "Default Credit Card Payment"]
+
+
+def test_multiple_cards_each_generate_independent_payment_due_rows():
+    accounts = [make_account(1000)]
+    card_a = make_settings(statement_close_day=15, payment_due_offset_days=20, name="Card A", id=1)
+    card_b = make_settings(statement_close_day=15, payment_due_offset_days=20, name="Card B", id=2)
+    transactions = [
+        make_transaction("coffee", dt.date(2026, 1, 5), credit_amount=Decimal("-50"), credit_card_id=1),
+        make_transaction("gas", dt.date(2026, 1, 6), credit_amount=Decimal("-30"), credit_card_id=2),
+    ]
+    rows = compute_running_total(
+        accounts, transactions, [card_a, card_b], dt.date(2026, 2, 1), dt.date(2026, 2, 28), include_month_end=False
+    )
+    due_rows = {r.name: r for r in rows if r.name.endswith("Payment")}
+    assert due_rows["Card A Payment"].cash_amount == Decimal("-50")
+    assert due_rows["Card B Payment"].cash_amount == Decimal("-30")
 
 
 def test_month_end_rows_are_included_by_default():

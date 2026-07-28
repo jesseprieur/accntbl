@@ -48,7 +48,7 @@ design rationale before implementing any item below.
       starting balance)
 
 ## 5. Recurring Series page
-- [x] View/edit/delete/add recurring series
+- [ ] View/edit/delete/add recurring series
 
 ## 6. Main table view
 - [x] Backend endpoint: paginated transaction window by date range
@@ -96,7 +96,7 @@ design rationale before implementing any item below.
 - [x] Transaction add/edit form + Recurring Series form: credit card
       selector, shown only when kind=credit, defaults to the default card,
       user can choose another
-- [ ] Credit card statement period + payment-due calculators: key by
+- [x] Credit card statement period + payment-due calculators: key by
       `credit_card_id`, computed independently per card
 - [ ] `credit_due_overrides` model + migration (`credit_card_id`, `due_date`,
       `amount`, `notes`, unique on card+due_date)

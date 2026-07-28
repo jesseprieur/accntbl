@@ -46,7 +46,7 @@ def _month_end_dates(range_start, range_end):
 def compute_running_total(
     checking_accounts,
     transactions,
-    credit_card_settings,
+    credit_cards,
     range_start,
     range_end,
     include_month_end=True,
@@ -54,10 +54,13 @@ def compute_running_total(
     """Return `LedgerRow`s in ascending date order with a running total.
 
     `transactions` should include all real rows relevant to the running
-    total (skipped occurrences are filtered out here). Virtual credit-card
-    payment-due rows are generated on the fly for statement periods whose
-    due_date falls within [range_start, range_end] and merged in; ties on the
-    same date keep real rows ahead of the virtual payment-due row. A virtual
+    total (skipped occurrences are filtered out here). `credit_cards` is an
+    iterable of `CreditCard` rows (may be empty/None); each card's
+    statement periods and payment-due amounts are computed independently
+    (only that card's own kind=credit transactions feed its due-row sum),
+    and every card's virtual payment-due rows for periods whose due_date
+    falls within [range_start, range_end] are merged in; ties on the same
+    date keep real rows ahead of virtual payment-due rows. A virtual
     "month end" marker row is also merged in for every month overlapping the
     range, sorted after any same-date rows so it reflects the balance as of
     the close of that day.
@@ -71,11 +74,11 @@ def compute_running_total(
     ]
 
     virtual_rows = []
-    if credit_card_settings is not None:
-        dues = payment_due_transactions(
-            credit_card_settings, transactions, range_start, range_end
+    for card in credit_cards or []:
+        dues = payment_due_transactions(card, transactions, range_start, range_end)
+        virtual_rows.extend(
+            (d.date, d.name, d.cash_amount, None, False) for d in dues
         )
-        virtual_rows = [(d.date, d.name, d.cash_amount, None, False) for d in dues]
 
     month_end_rows = (
         [

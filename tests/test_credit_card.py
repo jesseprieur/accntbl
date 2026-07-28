@@ -6,19 +6,24 @@ from app.models import Kind, OccurrenceStatus
 from app.services.credit_card import payment_due_transactions, statement_periods
 
 
-def make_settings(statement_close_day, payment_due_offset_days=20, name="Default Credit Card"):
+def make_settings(statement_close_day, payment_due_offset_days=20, name="Default Credit Card", id=1):
     return SimpleNamespace(
+        id=id,
         name=name,
         statement_close_day=statement_close_day,
         payment_due_offset_days=payment_due_offset_days,
     )
 
 
-def make_transaction(date, credit_amount=None, occurrence_status=None):
+def make_transaction(date, credit_amount=None, occurrence_status=None, credit_card_id=1):
     kind = Kind.credit if credit_amount is not None else Kind.cash
     amount = credit_amount if credit_amount is not None else Decimal("0")
     return SimpleNamespace(
-        date=date, kind=kind, amount=amount, occurrence_status=occurrence_status
+        date=date,
+        kind=kind,
+        amount=amount,
+        occurrence_status=occurrence_status,
+        credit_card_id=credit_card_id if kind == Kind.credit else None,
     )
 
 
@@ -148,6 +153,19 @@ def test_payment_due_filters_by_due_date_not_close_date():
         settings, [], dt.date(2026, 1, 1), dt.date(2026, 1, 31)
     )
     assert [d.date for d in dues] == [dt.date(2026, 1, 4)]
+
+
+def test_payment_due_only_sums_transactions_for_this_card():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=1)
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00"), credit_card_id=1),
+        # Belongs to a different card; must not contribute to this card's due amount.
+        make_transaction(dt.date(2026, 1, 10), credit_amount=Decimal("-999.00"), credit_card_id=2),
+    ]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28)
+    )
+    assert dues[0].cash_amount == Decimal("-50.00")
 
 
 def test_payment_due_multiple_periods_ordered_by_due_date():

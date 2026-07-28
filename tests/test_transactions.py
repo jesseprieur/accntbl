@@ -116,7 +116,8 @@ def test_window_includes_virtual_credit_card_payment_rows(client, app):
             starting_balance=Decimal("0"),
         ))
         db.session.add(Transaction(
-            name="Groceries", kind=Kind.credit, amount=Decimal("-75.00"), date=dt.date(2026, 7, 5)
+            name="Groceries", kind=Kind.credit, credit_card_id=1,
+            amount=Decimal("-75.00"), date=dt.date(2026, 7, 5)
         ))
         db.session.commit()
 
