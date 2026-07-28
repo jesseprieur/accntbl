@@ -34,10 +34,13 @@ close date, which *does* hit your checking balance on its due date.
   edit — saving it detaches just that occurrence (it becomes a standalone
   transaction, editable/deletable on its own from then on) while the rest
   of the series is unaffected; cancelling the edit leaves it attached.
-- **Credit card**: one default card with a statement-close day and a
-  payment-due offset. The app sums your logged Credit +/- purchases per
-  statement period and turns that into the Cash payment due on the due date
-  — no manual entry of the payment amount each month.
+- **Credit cards**: manage one or more cards on the Settings page, each with
+  its own statement-close day, payment-due offset, and starting balance;
+  exactly one is marked the default. When logging a Credit +/- transaction
+  (or a credit-kind recurring series), pick which card it belongs to
+  (defaults to the default card). The app sums logged Credit +/- purchases
+  per statement period and turns that into the Cash payment due on the due
+  date — no manual entry of the payment amount each month.
 - **History**: past transactions stay visible (scroll up) — this isn't just
   a forward-looking projection, it's a running ledger.
 - **Month-end markers**: a virtual row is inserted at the end of every month,
@@ -118,7 +121,8 @@ page at `/settings`.)
 
 1. Log in with the single configured user.
 2. Visit **Settings** to set up your checking account(s) starting balance
-   and the credit card's statement close day / payment due offset.
+   and your credit card(s) (name, statement close day, payment due offset,
+   starting balance, which one is the default).
 3. On the main table, add one-off transactions. Use the **Recurring Series**
    page to add/edit/delete recurring series (name, kind, amount, cadence,
    start date, optional end date). See "Key ideas" above for how
