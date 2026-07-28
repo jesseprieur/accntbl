@@ -179,3 +179,66 @@ def test_payment_due_multiple_periods_ordered_by_due_date():
     )
     assert [d.date for d in dues] == [dt.date(2026, 1, 25), dt.date(2026, 2, 25)]
     assert [d.cash_amount for d in dues] == [Decimal("-10.00"), Decimal("-20.00")]
+
+
+def make_override(credit_card_id, due_date, amount):
+    return SimpleNamespace(credit_card_id=credit_card_id, due_date=due_date, amount=amount)
+
+
+def test_payment_due_uses_computed_sum_when_no_override_present():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20)
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+    ]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28), overrides=[]
+    )
+    assert dues[0].cash_amount == Decimal("-50.00")
+    assert dues[0].is_override is False
+
+
+def test_payment_due_override_replaces_computed_sum_for_matching_card_and_date():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=1)
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+    ]
+    overrides = [make_override(1, dt.date(2026, 2, 4), Decimal("-123.45"))]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28), overrides=overrides
+    )
+    assert dues[0].cash_amount == Decimal("-123.45")
+    assert dues[0].is_override is True
+
+
+def test_payment_due_override_ignored_when_card_id_does_not_match():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=1)
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+    ]
+    overrides = [make_override(2, dt.date(2026, 2, 4), Decimal("-999.99"))]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28), overrides=overrides
+    )
+    assert dues[0].cash_amount == Decimal("-50.00")
+    assert dues[0].is_override is False
+
+
+def test_payment_due_override_ignored_when_due_date_does_not_match():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=1)
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+    ]
+    overrides = [make_override(1, dt.date(2026, 3, 4), Decimal("-999.99"))]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28), overrides=overrides
+    )
+    assert dues[0].cash_amount == Decimal("-50.00")
+    assert dues[0].is_override is False
+
+
+def test_payment_due_transaction_carries_credit_card_id():
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=7)
+    dues = payment_due_transactions(
+        settings, [], dt.date(2026, 2, 1), dt.date(2026, 2, 28)
+    )
+    assert dues[0].credit_card_id == 7

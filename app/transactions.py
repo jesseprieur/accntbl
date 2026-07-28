@@ -17,6 +17,7 @@ from app.models import (
     CadenceType,
     CheckingAccount,
     CreditCard,
+    CreditDueOverride,
     CustomIntervalUnit,
     Kind,
     OccurrenceStatus,
@@ -115,12 +116,18 @@ def window():
 
     checking_accounts = CheckingAccount.query.all()
     credit_cards = CreditCard.query.all()
+    credit_due_overrides = CreditDueOverride.query.all()
 
     full_range_start = min((t.date for t in history), default=start)
     full_range_start = min(full_range_start, start)
 
     ledger = compute_running_total(
-        checking_accounts, history, credit_cards, full_range_start, end
+        checking_accounts,
+        history,
+        credit_cards,
+        full_range_start,
+        end,
+        credit_due_overrides=credit_due_overrides,
     )
 
     rows = [
@@ -136,7 +143,9 @@ def window():
             ),
             "notes": row.transaction.notes if row.transaction is not None else None,
             "credit_card_id": (
-                row.transaction.credit_card_id if row.transaction is not None else None
+                row.transaction.credit_card_id
+                if row.transaction is not None
+                else row.credit_card_id
             ),
             "recurring_series_id": (
                 row.transaction.recurring_series_id
@@ -151,6 +160,7 @@ def window():
             "running_total": str(row.running_total),
             "is_negative": row.is_negative,
             "is_virtual": row.transaction is None,
+            "is_override": row.is_override,
             "is_month_end": row.is_month_end,
             "month_over_month_change": (
                 str(row.month_over_month_change)
@@ -177,6 +187,7 @@ def window():
                 "running_total": None,
                 "is_negative": False,
                 "is_virtual": False,
+                "is_override": False,
                 "is_month_end": False,
                 "month_over_month_change": None,
             }

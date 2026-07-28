@@ -10,6 +10,7 @@ from app.models import (
     CadenceType,
     CheckingAccount,
     CreditCard,
+    CreditDueOverride,
     Kind,
     OccurrenceStatus,
     RecurringSeries,
@@ -135,6 +136,45 @@ def test_window_includes_virtual_credit_card_payment_rows(client, app):
     assert virtual_rows[0]["date"] == "2026-07-25"
     assert virtual_rows[0]["cash_amount"] == "-75.00"
     assert virtual_rows[0]["id"] is None
+    assert virtual_rows[0]["is_override"] is False
+    assert virtual_rows[0]["credit_card_id"] == 1
+
+
+def test_window_payment_due_row_uses_override_amount_when_present(client, app):
+    with app.app_context():
+        db.session.add(CheckingAccount(
+            name="Primary", starting_balance=Decimal("1000.00"), as_of_date=dt.date(2026, 1, 1)
+        ))
+        db.session.add(CreditCard(
+            id=1,
+            name="Default Credit Card",
+            is_default=True,
+            statement_close_day=15,
+            payment_due_offset_days=10,
+            starting_balance=Decimal("0"),
+        ))
+        db.session.add(Transaction(
+            name="Groceries", kind=Kind.credit, credit_card_id=1,
+            amount=Decimal("-75.00"), date=dt.date(2026, 7, 5)
+        ))
+        db.session.add(CreditDueOverride(
+            credit_card_id=1, due_date=dt.date(2026, 7, 25), amount=Decimal("-200.00")
+        ))
+        db.session.commit()
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    data = response.get_json()
+
+    virtual_rows = [
+        row for row in data["rows"] if row["is_virtual"] and not row["is_month_end"]
+    ]
+    assert len(virtual_rows) == 1
+    assert virtual_rows[0]["cash_amount"] == "-200.00"
+    assert virtual_rows[0]["is_override"] is True
+    assert virtual_rows[0]["credit_card_id"] == 1
 
 
 def test_window_includes_month_end_virtual_row(client, app):

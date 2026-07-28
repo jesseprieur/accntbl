@@ -24,6 +24,8 @@ class LedgerRow:
     transaction: object = None
     is_month_end: bool = False
     month_over_month_change: Decimal = None
+    credit_card_id: int = None
+    is_override: bool = False
 
 
 def _month_end_dates(range_start, range_end):
@@ -50,6 +52,7 @@ def compute_running_total(
     range_start,
     range_end,
     include_month_end=True,
+    credit_due_overrides=None,
 ):
     """Return `LedgerRow`s in ascending date order with a running total.
 
@@ -64,25 +67,33 @@ def compute_running_total(
     "month end" marker row is also merged in for every month overlapping the
     range, sorted after any same-date rows so it reflects the balance as of
     the close of that day.
+
+    `credit_due_overrides` is an optional iterable of `CreditDueOverride`
+    rows; when one matches a card/due_date, its `amount` replaces that
+    payment-due row's computed sum and `LedgerRow.is_override` is set True
+    (see specs.md's "Editable override" bullet).
     """
     baseline = sum((a.starting_balance for a in checking_accounts), Decimal("0"))
 
     real_rows = [
-        (t.date, t.name, t.amount if t.kind == Kind.cash else Decimal("0"), t, False)
+        (t.date, t.name, t.amount if t.kind == Kind.cash else Decimal("0"), t, False, None, False)
         for t in transactions
         if t.occurrence_status != OccurrenceStatus.skipped
     ]
 
     virtual_rows = []
     for card in credit_cards or []:
-        dues = payment_due_transactions(card, transactions, range_start, range_end)
+        dues = payment_due_transactions(
+            card, transactions, range_start, range_end, overrides=credit_due_overrides
+        )
         virtual_rows.extend(
-            (d.date, d.name, d.cash_amount, None, False) for d in dues
+            (d.date, d.name, d.cash_amount, None, False, d.credit_card_id, d.is_override)
+            for d in dues
         )
 
     month_end_rows = (
         [
-            (month_end, "Month end", Decimal("0"), None, True)
+            (month_end, "Month end", Decimal("0"), None, True, None, False)
             for month_end in _month_end_dates(range_start, range_end)
         ]
         if include_month_end
@@ -97,7 +108,7 @@ def compute_running_total(
     running_total = baseline
     previous_month_end_total = None
     results = []
-    for row_date, name, cash_amount, transaction, is_month_end in all_rows:
+    for row_date, name, cash_amount, transaction, is_month_end, credit_card_id, is_override in all_rows:
         running_total += cash_amount
         month_over_month_change = None
         if is_month_end:
@@ -114,6 +125,8 @@ def compute_running_total(
                 transaction=transaction,
                 is_month_end=is_month_end,
                 month_over_month_change=month_over_month_change,
+                credit_card_id=credit_card_id,
+                is_override=is_override,
             )
         )
     return results

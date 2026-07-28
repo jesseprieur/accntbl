@@ -203,6 +203,53 @@ def test_month_end_row_sorts_after_same_day_transactions():
     assert rows[1].running_total == Decimal("-20")
 
 
+def make_override(credit_card_id, due_date, amount):
+    return SimpleNamespace(credit_card_id=credit_card_id, due_date=due_date, amount=amount)
+
+
+def test_credit_due_override_replaces_computed_payment_due_amount():
+    accounts = [make_account(1000)]
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=1)
+    transactions = [
+        make_transaction("coffee", dt.date(2026, 1, 5), credit_amount=Decimal("-50"), credit_card_id=1),
+    ]
+    overrides = [make_override(1, dt.date(2026, 2, 4), Decimal("-200"))]
+    rows = compute_running_total(
+        accounts,
+        transactions,
+        [settings],
+        dt.date(2026, 2, 1),
+        dt.date(2026, 2, 28),
+        include_month_end=False,
+        credit_due_overrides=overrides,
+    )
+    payment_row = next(r for r in rows if r.name == "Default Credit Card Payment")
+    assert payment_row.cash_amount == Decimal("-200")
+    assert payment_row.running_total == Decimal("800")
+    assert payment_row.is_override is True
+    assert payment_row.credit_card_id == 1
+
+
+def test_payment_due_row_is_override_false_when_no_override_matches():
+    accounts = [make_account(1000)]
+    settings = make_settings(statement_close_day=15, payment_due_offset_days=20, id=1)
+    transactions = [
+        make_transaction("coffee", dt.date(2026, 1, 5), credit_amount=Decimal("-50"), credit_card_id=1),
+    ]
+    rows = compute_running_total(
+        accounts,
+        transactions,
+        [settings],
+        dt.date(2026, 2, 1),
+        dt.date(2026, 2, 28),
+        include_month_end=False,
+        credit_due_overrides=[],
+    )
+    payment_row = next(r for r in rows if r.name == "Default Credit Card Payment")
+    assert payment_row.cash_amount == Decimal("-50")
+    assert payment_row.is_override is False
+
+
 def test_month_end_rows_excluded_when_disabled():
     accounts = [make_account(100)]
     rows = compute_running_total(

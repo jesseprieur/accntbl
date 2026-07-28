@@ -100,7 +100,7 @@ design rationale before implementing any item below.
       `credit_card_id`, computed independently per card
 - [x] `credit_due_overrides` model + migration (`credit_card_id`, `due_date`,
       `amount`, `notes`, unique on card+due_date)
-- [ ] Payment-due row computation: use override amount when present for
+- [x] Payment-due row computation: use override amount when present for
       that (card, due_date), else the computed sum; expose which one it is
       in the API response
 - [ ] UI: "edit estimate" control on payment-due rows to set/clear the
