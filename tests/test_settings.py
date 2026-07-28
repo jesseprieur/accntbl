@@ -261,6 +261,68 @@ def test_delete_credit_card_removes_unreferenced_non_default_card(client, app):
         assert CreditCard.query.get(second_id) is None
 
 
+def test_delete_credit_card_blocks_current_default_when_others_exist(client, app):
+    with app.app_context():
+        first = CreditCard(
+            name="First Card",
+            is_default=True,
+            statement_close_day=1,
+            payment_due_offset_days=10,
+        )
+        second = CreditCard(
+            name="Second Card",
+            is_default=False,
+            statement_close_day=15,
+            payment_due_offset_days=20,
+        )
+        db.session.add_all([first, second])
+        db.session.commit()
+        first_id = first.id
+
+    response = client.post(f"/settings/credit-cards/{first_id}/delete")
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert CreditCard.query.get(first_id) is not None
+
+
+def test_delete_credit_card_blocks_card_referenced_by_transaction(client, app):
+    from app.models import Kind, Transaction
+
+    with app.app_context():
+        first = CreditCard(
+            name="First Card",
+            is_default=True,
+            statement_close_day=1,
+            payment_due_offset_days=10,
+        )
+        second = CreditCard(
+            name="Second Card",
+            is_default=False,
+            statement_close_day=15,
+            payment_due_offset_days=20,
+        )
+        db.session.add_all([first, second])
+        db.session.commit()
+        db.session.add(
+            Transaction(
+                name="Groceries",
+                kind=Kind.credit,
+                amount=Decimal("-50.00"),
+                date=dt.date(2026, 1, 5),
+                credit_card_id=second.id,
+            )
+        )
+        db.session.commit()
+        second_id = second.id
+
+    response = client.post(f"/settings/credit-cards/{second_id}/delete")
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert CreditCard.query.get(second_id) is not None
+
+
 def test_credit_card_settings_rejects_invalid_close_day(client, app):
     client.post(
         "/settings/credit-cards",

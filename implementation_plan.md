@@ -108,7 +108,7 @@ design rationale before implementing any item below.
       distinguish "estimated" vs "overridden" rows; show card name on the
       row when more than one card exists
 - [x] Update seed script for multi-card sample data
-- [ ] Unit tests: multiple cards, default-card enforcement, per-card
+- [x] Unit tests: multiple cards, default-card enforcement, per-card
       statement periods, override precedence, delete-blocking rules
 
 ## 9. Polish / validation
