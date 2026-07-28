@@ -42,6 +42,14 @@
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-kind-credit">Credit</label>
               </div>
             </div>
+            <div class="mb-2 d-none" id="add-transaction-card-field">
+              <label class="form-label">Credit card</label>
+              <select class="form-select form-select-sm" name="credit_card_id" id="add-transaction-card-select">
+                {% for card in credit_cards %}
+                  <option value="{{ card.id }}" {% if card.id == default_credit_card_id %}selected{% endif %}>{{ card.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
             <div class="mb-2">
               <label class="form-label">Amount</label>
               <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
@@ -65,7 +73,9 @@
     <label class="form-check-label" for="show-skipped-toggle">Show skipped occurrences</label>
   </div>
 
-  <div id="transactions-window" data-today="{{ today }}" data-window-url="{{ url_for('transactions.window') }}" class="mt-2" style="max-height: 70vh; overflow-y: auto;">
+  <script id="credit-cards-data" type="application/json">{{ credit_cards_json | safe }}</script>
+
+  <div id="transactions-window" data-today="{{ today }}" data-window-url="{{ url_for('transactions.window') }}" data-default-credit-card-id="{{ default_credit_card_id or '' }}" class="mt-2" style="max-height: 70vh; overflow-y: auto;">
     <table class="table table-sm align-middle mb-0">
       <thead class="sticky-top bg-white">
         <tr>

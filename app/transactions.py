@@ -57,6 +57,34 @@ def _parse_enum_field(enum_cls, value, field_label):
         raise ValueError(f"{field_label} must be one of: {allowed}.")
 
 
+def _resolve_credit_card_id(kind, requested_id, existing_id):
+    """Resolve `credit_card_id` for a transaction/series being created or edited.
+
+    Cash entities never carry a card. Credit entities keep an explicitly
+    requested card (validated to exist), otherwise keep their current card,
+    otherwise fall back to the default card.
+    """
+    if kind == Kind.cash:
+        return None
+
+    if requested_id is not None:
+        try:
+            card_id = int(requested_id)
+        except (TypeError, ValueError):
+            raise ValueError("Credit card is invalid.")
+        if not CreditCard.query.get(card_id):
+            raise ValueError("Credit card not found.")
+        return card_id
+
+    if existing_id is not None:
+        return existing_id
+
+    default_card = CreditCard.query.filter_by(is_default=True).first()
+    if default_card is None:
+        raise ValueError("A credit card is required; add one in Settings first.")
+    return default_card.id
+
+
 @transactions_bp.route("/window", methods=["GET"])
 @login_required
 def window():
@@ -107,6 +135,9 @@ def window():
                 else None
             ),
             "notes": row.transaction.notes if row.transaction is not None else None,
+            "credit_card_id": (
+                row.transaction.credit_card_id if row.transaction is not None else None
+            ),
             "recurring_series_id": (
                 row.transaction.recurring_series_id
                 if row.transaction is not None
@@ -140,6 +171,7 @@ def window():
                 "cash_amount": str(t.amount) if t.kind == Kind.cash else "0",
                 "credit_amount": str(t.amount) if t.kind == Kind.credit else None,
                 "notes": t.notes,
+                "credit_card_id": t.credit_card_id,
                 "recurring_series_id": t.recurring_series_id,
                 "occurrence_status": t.occurrence_status.value,
                 "running_total": None,
@@ -177,6 +209,10 @@ def create():
             raise ValueError("Amount is required.")
 
         notes = payload.get("notes") or None
+
+        credit_card_id = _resolve_credit_card_id(
+            kind, payload.get("credit_card_id"), None
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -186,6 +222,7 @@ def create():
         amount=amount,
         date=txn_date,
         notes=notes,
+        credit_card_id=credit_card_id,
     )
     db.session.add(transaction)
     db.session.commit()
@@ -198,6 +235,7 @@ def create():
             "kind": transaction.kind.value,
             "amount": str(transaction.amount),
             "notes": transaction.notes,
+            "credit_card_id": transaction.credit_card_id,
             "recurring_series_id": transaction.recurring_series_id,
             "occurrence_status": None,
         }
@@ -253,6 +291,10 @@ def create_series():
                 raise ValueError("End date must not be before start date.")
 
         notes = payload.get("notes") or None
+
+        credit_card_id = _resolve_credit_card_id(
+            kind, payload.get("credit_card_id"), None
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -266,6 +308,7 @@ def create_series():
         start_date=start_date,
         end_date=end_date,
         notes=notes,
+        credit_card_id=credit_card_id,
     )
     db.session.add(series)
     db.session.flush()
@@ -284,6 +327,7 @@ def create_series():
                 notes=notes,
                 recurring_series_id=series.id,
                 occurrence_status=OccurrenceStatus.attached,
+                credit_card_id=credit_card_id,
             )
         )
 
@@ -305,6 +349,7 @@ def create_series():
             "start_date": series.start_date.isoformat(),
             "end_date": series.end_date.isoformat() if series.end_date else None,
             "notes": series.notes,
+            "credit_card_id": series.credit_card_id,
             "occurrences_created": len(occurrence_dates),
         }
     ), 201
@@ -330,6 +375,7 @@ def list_series():
                     "start_date": s.start_date.isoformat(),
                     "end_date": s.end_date.isoformat() if s.end_date else None,
                     "notes": s.notes,
+                    "credit_card_id": s.credit_card_id,
                 }
                 for s in series
             ]
@@ -358,6 +404,7 @@ def get_series(series_id):
             "start_date": series.start_date.isoformat(),
             "end_date": series.end_date.isoformat() if series.end_date else None,
             "notes": series.notes,
+            "credit_card_id": series.credit_card_id,
         }
     )
 
@@ -428,6 +475,11 @@ def update_series(series_id):
 
         if "notes" in payload:
             series.notes = payload["notes"] or None
+
+        if "kind" in payload or "credit_card_id" in payload:
+            series.credit_card_id = _resolve_credit_card_id(
+                series.kind, payload.get("credit_card_id"), series.credit_card_id
+            )
     except ValueError as exc:
         db.session.rollback()
         return jsonify({"error": str(exc)}), 400
@@ -450,6 +502,7 @@ def update_series(series_id):
                 notes=series.notes,
                 recurring_series_id=series.id,
                 occurrence_status=OccurrenceStatus.attached,
+                credit_card_id=series.credit_card_id,
             )
         )
 
@@ -471,6 +524,7 @@ def update_series(series_id):
             "start_date": series.start_date.isoformat(),
             "end_date": series.end_date.isoformat() if series.end_date else None,
             "notes": series.notes,
+            "credit_card_id": series.credit_card_id,
             "occurrences_created": len(occurrence_dates),
         }
     )
@@ -527,6 +581,11 @@ def update(transaction_id):
 
         if "notes" in payload:
             transaction.notes = payload["notes"] or None
+
+        if "kind" in payload or "credit_card_id" in payload:
+            transaction.credit_card_id = _resolve_credit_card_id(
+                transaction.kind, payload.get("credit_card_id"), transaction.credit_card_id
+            )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -546,6 +605,7 @@ def update(transaction_id):
             "kind": transaction.kind.value,
             "amount": str(transaction.amount),
             "notes": transaction.notes,
+            "credit_card_id": transaction.credit_card_id,
             "recurring_series_id": transaction.recurring_series_id,
             "occurrence_status": (
                 transaction.occurrence_status.value

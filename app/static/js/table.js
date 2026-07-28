@@ -5,7 +5,21 @@
 
   const today = container.dataset.today;
   const windowUrl = container.dataset.windowUrl;
+  const defaultCreditCardId = container.dataset.defaultCreditCardId || "";
   const showSkippedToggle = document.getElementById("show-skipped-toggle");
+
+  const creditCardsDataEl = document.getElementById("credit-cards-data");
+  const creditCards = creditCardsDataEl ? JSON.parse(creditCardsDataEl.textContent) : [];
+
+  function cardOptionsHtml(selectedId) {
+    const selected = selectedId == null ? defaultCreditCardId : String(selectedId);
+    return creditCards
+      .map((card) => {
+        const value = String(card.id);
+        return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(card.name)}</option>`;
+      })
+      .join("");
+  }
 
   const PAGE_DAYS = 30;
   const FUTURE_LIMIT_DAYS = 365;
@@ -106,11 +120,17 @@
     const tr = document.createElement("tr");
     tr.dataset.date = row.date;
     tr.dataset.id = row.id;
+    const isCredit = row.credit_amount != null;
     tr.innerHTML = `
       <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${Escape.html(row.date)}" required></td>
       <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${Escape.html(row.name)}" required></td>
       <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${Escape.html(formatAmount(row.cash_amount))}"></td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${Escape.html(formatAmount(row.credit_amount))}"></td>
+      <td>
+        <input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${Escape.html(formatAmount(row.credit_amount))}">
+        <select class="form-select form-select-sm mt-1 ${isCredit ? "" : "d-none"}" data-card-select>
+          ${cardOptionsHtml(row.credit_card_id)}
+        </select>
+      </td>
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
       <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${Escape.html(row.notes || "")}"></td>
       <td class="text-nowrap">
@@ -118,6 +138,13 @@
         <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel"><i class="bi bi-x-lg"></i> Cancel</button>
       </td>
     `;
+    const creditAmountInput = tr.querySelector('[data-field="credit_amount"]');
+    const cardSelect = tr.querySelector("[data-card-select]");
+    if (creditAmountInput && cardSelect) {
+      creditAmountInput.addEventListener("input", () => {
+        cardSelect.classList.toggle("d-none", !creditAmountInput.value);
+      });
+    }
     return tr;
   }
 
@@ -191,6 +218,8 @@
     } else if (values.credit_amount) {
       body.kind = "credit";
       body.amount = values.credit_amount;
+      const cardSelect = tr.querySelector("[data-card-select]");
+      if (cardSelect) body.credit_card_id = cardSelect.value;
     }
 
     fetch(`/transactions/${id}`, {
@@ -444,17 +473,31 @@
   if (addForm) {
     const addModalEl = document.getElementById("add-transaction-modal");
     const addError = document.getElementById("add-transaction-error");
+    const addCardField = document.getElementById("add-transaction-card-field");
+
+    const toggleAddCardField = () => {
+      const checked = addForm.querySelector('input[name="kind"]:checked');
+      if (addCardField) addCardField.classList.toggle("d-none", !checked || checked.value !== "credit");
+    };
+    addForm.querySelectorAll('input[name="kind"]').forEach((radio) => {
+      radio.addEventListener("change", toggleAddCardField);
+    });
+    toggleAddCardField();
 
     addForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const formData = new FormData(addForm);
+      const kind = formData.get("kind");
       const body = {
         name: formData.get("name"),
         date: formData.get("date"),
-        kind: formData.get("kind"),
+        kind,
         amount: formData.get("amount"),
         notes: formData.get("notes") || null,
       };
+      if (kind === "credit") {
+        body.credit_card_id = formData.get("credit_card_id");
+      }
 
       fetch("/transactions", {
         method: "POST",
@@ -470,6 +513,7 @@
           }
           addError.classList.add("d-none");
           addForm.reset();
+          toggleAddCardField();
           const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(addModalEl) : null;
           if (modal) modal.hide();
           reloadLoadedWindow();

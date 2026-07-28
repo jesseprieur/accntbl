@@ -69,7 +69,22 @@
     toggleSeriesCustomFields();
   }
 
+  function toggleCardField(form, cardField) {
+    if (!form || !cardField) return;
+    const checked = form.querySelector('input[name="kind"]:checked');
+    cardField.classList.toggle("d-none", !checked || checked.value !== "credit");
+  }
+
   const addSeriesForm = document.getElementById("add-series-form");
+  const addSeriesCardField = document.getElementById("add-series-card-field");
+  const toggleAddSeriesCardField = () => toggleCardField(addSeriesForm, addSeriesCardField);
+  if (addSeriesForm) {
+    addSeriesForm.querySelectorAll('input[name="kind"]').forEach((radio) => {
+      radio.addEventListener("change", toggleAddSeriesCardField);
+    });
+    toggleAddSeriesCardField();
+  }
+
   if (addSeriesForm) {
     const addSeriesModalEl = document.getElementById("add-series-modal");
     const addSeriesError = document.getElementById("add-series-error");
@@ -77,9 +92,10 @@
     addSeriesForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const formData = new FormData(addSeriesForm);
+      const kind = formData.get("kind");
       const body = {
         name: formData.get("name"),
-        kind: formData.get("kind"),
+        kind,
         amount: formData.get("amount"),
         cadence_type: formData.get("cadence_type"),
         custom_interval_value: formData.get("custom_interval_value") || null,
@@ -88,6 +104,9 @@
         end_date: formData.get("end_date") || null,
         notes: formData.get("notes") || null,
       };
+      if (kind === "credit") {
+        body.credit_card_id = formData.get("credit_card_id");
+      }
 
       fetch("/transactions/series", {
         method: "POST",
@@ -104,6 +123,7 @@
           addSeriesError.classList.add("d-none");
           addSeriesForm.reset();
           toggleSeriesCustomFields();
+          toggleAddSeriesCardField();
           const modal = window.bootstrap
             ? window.bootstrap.Modal.getOrCreateInstance(addSeriesModalEl)
             : null;
@@ -121,11 +141,18 @@
   const editSeriesModalEl = document.getElementById("edit-series-modal");
   const editSeriesCadenceSelect = document.getElementById("edit-series-cadence");
   const editSeriesCustomFields = document.getElementById("edit-series-custom-fields");
+  const editSeriesCardField = document.getElementById("edit-series-card-field");
+  const toggleEditSeriesCardField = () => toggleCardField(editSeriesForm, editSeriesCardField);
 
   const toggleEditSeriesCustomFields = () =>
     toggleCustomFields(editSeriesCadenceSelect, editSeriesCustomFields);
   if (editSeriesCadenceSelect) {
     editSeriesCadenceSelect.addEventListener("change", toggleEditSeriesCustomFields);
+  }
+  if (editSeriesForm) {
+    editSeriesForm.querySelectorAll('input[name="kind"]').forEach((radio) => {
+      radio.addEventListener("change", toggleEditSeriesCardField);
+    });
   }
 
   function openEditSeriesModal(seriesId) {
@@ -147,7 +174,11 @@
         editSeriesForm.elements["start_date"].value = data.start_date;
         editSeriesForm.elements["end_date"].value = data.end_date || "";
         editSeriesForm.elements["notes"].value = data.notes || "";
+        if (data.credit_card_id != null) {
+          editSeriesForm.elements["credit_card_id"].value = data.credit_card_id;
+        }
         toggleEditSeriesCustomFields();
+        toggleEditSeriesCardField();
         document.getElementById("edit-series-error").classList.add("d-none");
         const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl) : null;
         if (modal) modal.show();
@@ -162,9 +193,10 @@
       event.preventDefault();
       const formData = new FormData(editSeriesForm);
       const seriesId = formData.get("series_id");
+      const kind = formData.get("kind");
       const body = {
         name: formData.get("name"),
-        kind: formData.get("kind"),
+        kind,
         amount: formData.get("amount"),
         cadence_type: formData.get("cadence_type"),
         custom_interval_value: formData.get("custom_interval_value") || null,
@@ -173,6 +205,9 @@
         end_date: formData.get("end_date") || null,
         notes: formData.get("notes") || null,
       };
+      if (kind === "credit") {
+        body.credit_card_id = formData.get("credit_card_id");
+      }
 
       fetch(`/transactions/series/${seriesId}`, {
         method: "PATCH",

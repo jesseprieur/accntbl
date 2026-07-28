@@ -703,6 +703,15 @@ def test_create_series_monthly_materializes_attached_occurrences(client, app):
 
 
 def test_create_series_credit_kind_sets_amount(client, app):
+    with app.app_context():
+        db.session.add(CreditCard(
+            name="Default Credit Card",
+            is_default=True,
+            statement_close_day=15,
+            payment_due_offset_days=20,
+        ))
+        db.session.commit()
+
     response = client.post(
         "/transactions/series",
         json={
@@ -876,6 +885,7 @@ def test_get_series_returns_series_fields(client, app):
         "start_date": "2026-07-01",
         "end_date": "2026-09-01",
         "notes": "biweekly job",
+        "credit_card_id": None,
     }
 
 
@@ -1169,3 +1179,164 @@ def test_update_series_switching_to_custom_cadence_requires_interval(client, app
     assert data["cadence_type"] == "custom"
     assert data["custom_interval_value"] == 10
     assert data["custom_interval_unit"] == "days"
+
+
+def _add_credit_card(app, is_default=True, name="Default Credit Card"):
+    with app.app_context():
+        card = CreditCard(
+            name=name,
+            is_default=is_default,
+            statement_close_day=15,
+            payment_due_offset_days=20,
+        )
+        db.session.add(card)
+        db.session.commit()
+        return card.id
+
+
+def test_create_credit_transaction_defaults_to_default_card(client, app):
+    card_id = _add_credit_card(app)
+
+    response = client.post(
+        "/transactions",
+        json={"name": "Groceries", "date": "2026-07-15", "kind": "credit", "amount": "-25.00"},
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["credit_card_id"] == card_id
+
+    with app.app_context():
+        created = Transaction.query.get(data["id"])
+        assert created.credit_card_id == card_id
+
+
+def test_create_credit_transaction_uses_explicit_card(client, app):
+    _add_credit_card(app, is_default=True, name="Default Credit Card")
+    other_card_id = _add_credit_card(app, is_default=False, name="Amex Business")
+
+    response = client.post(
+        "/transactions",
+        json={
+            "name": "Flight",
+            "date": "2026-07-15",
+            "kind": "credit",
+            "amount": "-300.00",
+            "credit_card_id": other_card_id,
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["credit_card_id"] == other_card_id
+
+
+def test_create_credit_transaction_without_any_card_fails(client):
+    response = client.post(
+        "/transactions",
+        json={"name": "Groceries", "date": "2026-07-15", "kind": "credit", "amount": "-25.00"},
+    )
+    assert response.status_code == 400
+
+
+def test_create_credit_transaction_rejects_unknown_card(client, app):
+    _add_credit_card(app)
+
+    response = client.post(
+        "/transactions",
+        json={
+            "name": "Groceries",
+            "date": "2026-07-15",
+            "kind": "credit",
+            "amount": "-25.00",
+            "credit_card_id": 999999,
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_create_cash_transaction_ignores_credit_card_id(client, app):
+    card_id = _add_credit_card(app)
+
+    response = client.post(
+        "/transactions",
+        json={
+            "name": "Rent",
+            "date": "2026-07-15",
+            "kind": "cash",
+            "amount": "-400.00",
+            "credit_card_id": card_id,
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["credit_card_id"] is None
+
+
+def test_update_transaction_switching_to_credit_defaults_to_default_card(client, app):
+    card_id = _add_credit_card(app)
+    with app.app_context():
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(f"/transactions/{txn_id}", json={"kind": "credit"})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["credit_card_id"] == card_id
+
+
+def test_update_transaction_switching_to_cash_clears_credit_card_id(client, app):
+    card_id = _add_credit_card(app)
+    with app.app_context():
+        txn = Transaction(
+            name="Groceries",
+            kind=Kind.credit,
+            amount=Decimal("-25.00"),
+            date=dt.date(2026, 7, 15),
+            credit_card_id=card_id,
+        )
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+
+    response = client.patch(f"/transactions/{txn_id}", json={"kind": "cash"})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["credit_card_id"] is None
+
+
+def test_create_series_credit_defaults_to_default_card_and_materializes_with_card(client, app):
+    card_id = _add_credit_card(app)
+
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Subscription",
+            "kind": "credit",
+            "amount": "-9.99",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-15",
+            "end_date": "2026-07-15",
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["credit_card_id"] == card_id
+
+    with app.app_context():
+        occurrence = Transaction.query.filter_by(recurring_series_id=data["id"]).one()
+        assert occurrence.credit_card_id == card_id
+
+
+def test_create_series_credit_without_any_card_fails(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Subscription",
+            "kind": "credit",
+            "amount": "-9.99",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-15",
+        },
+    )
+    assert response.status_code == 400

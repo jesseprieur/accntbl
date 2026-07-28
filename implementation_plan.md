@@ -93,7 +93,7 @@ design rationale before implementing any item below.
       block deleting the last remaining card entirely
 - [x] Settings page: manage list of credit cards (add/edit/delete, set
       default) replacing the single-card form
-- [ ] Transaction add/edit form + Recurring Series form: credit card
+- [x] Transaction add/edit form + Recurring Series form: credit card
       selector, shown only when kind=credit, defaults to the default card,
       user can choose another
 - [ ] Credit card statement period + payment-due calculators: key by
