@@ -115,7 +115,7 @@ def test_delete_checking_account(client, app):
 
 def test_create_credit_card_settings(client, app):
     response = client.post(
-        "/settings/credit-card",
+        "/settings/credit-cards",
         data={
             "name": "Default Credit Card",
             "statement_close_day": "15",
@@ -130,24 +130,52 @@ def test_create_credit_card_settings(client, app):
         assert settings.statement_close_day == 15
         assert settings.payment_due_offset_days == 20
         assert settings.starting_balance == Decimal("250.00")
+        # First card created is automatically the default.
+        assert settings.is_default is True
 
 
-def test_update_credit_card_settings_overwrites_singleton(client, app):
+def test_create_second_credit_card_is_not_default_by_default(client, app):
     with app.app_context():
         db.session.add(
             CreditCard(
-                id=1,
-                name="Old Card",
+                name="First Card",
                 is_default=True,
                 statement_close_day=1,
                 payment_due_offset_days=10,
-                starting_balance=Decimal("0.00"),
             )
         )
         db.session.commit()
 
     client.post(
-        "/settings/credit-card",
+        "/settings/credit-cards",
+        data={
+            "name": "Second Card",
+            "statement_close_day": "15",
+            "payment_due_offset_days": "20",
+        },
+    )
+
+    with app.app_context():
+        second = CreditCard.query.filter_by(name="Second Card").one()
+        assert second.is_default is False
+        assert CreditCard.query.filter_by(is_default=True).count() == 1
+
+
+def test_update_credit_card_settings(client, app):
+    with app.app_context():
+        card = CreditCard(
+            name="Old Card",
+            is_default=True,
+            statement_close_day=1,
+            payment_due_offset_days=10,
+            starting_balance=Decimal("0.00"),
+        )
+        db.session.add(card)
+        db.session.commit()
+        card_id = card.id
+
+    client.post(
+        f"/settings/credit-cards/{card_id}",
         data={
             "name": "Updated Card",
             "statement_close_day": "20",
@@ -161,6 +189,32 @@ def test_update_credit_card_settings_overwrites_singleton(client, app):
         settings = CreditCard.query.one()
         assert settings.name == "Updated Card"
         assert settings.statement_close_day == 20
+
+
+def test_set_default_credit_card(client, app):
+    with app.app_context():
+        first = CreditCard(
+            name="First Card",
+            is_default=True,
+            statement_close_day=1,
+            payment_due_offset_days=10,
+        )
+        second = CreditCard(
+            name="Second Card",
+            is_default=False,
+            statement_close_day=15,
+            payment_due_offset_days=20,
+        )
+        db.session.add_all([first, second])
+        db.session.commit()
+        first_id, second_id = first.id, second.id
+
+    response = client.post(f"/settings/credit-cards/{second_id}/set-default")
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert CreditCard.query.get(first_id).is_default is False
+        assert CreditCard.query.get(second_id).is_default is True
 
 
 def test_delete_credit_card_blocks_last_remaining_card(client, app):
@@ -209,7 +263,7 @@ def test_delete_credit_card_removes_unreferenced_non_default_card(client, app):
 
 def test_credit_card_settings_rejects_invalid_close_day(client, app):
     client.post(
-        "/settings/credit-card",
+        "/settings/credit-cards",
         data={
             "name": "Default Credit Card",
             "statement_close_day": "40",

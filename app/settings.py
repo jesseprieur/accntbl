@@ -35,11 +35,11 @@ def _parse_int(value, field_label):
 @login_required
 def index():
     checking_accounts = CheckingAccount.query.order_by(CheckingAccount.id).all()
-    credit_card = CreditCard.query.filter_by(is_default=True).first()
+    credit_cards = CreditCard.query.order_by(CreditCard.id).all()
     return render_template(
         "settings.html",
         checking_accounts=checking_accounts,
-        credit_card=credit_card,
+        credit_cards=credit_cards,
         today=date.today().isoformat(),
     )
 
@@ -101,44 +101,78 @@ def delete_checking_account(account_id):
     return redirect(url_for("settings.index"))
 
 
-@settings_bp.route("/credit-card", methods=["POST"])
+def _parse_credit_card_form(form):
+    name = form.get("name", "").strip()
+    if not name:
+        raise ValueError("Name is required.")
+    statement_close_day = _parse_int(
+        form.get("statement_close_day", ""), "Statement close day"
+    )
+    if not 1 <= statement_close_day <= 31:
+        raise ValueError("Statement close day must be between 1 and 31.")
+    payment_due_offset_days = _parse_int(
+        form.get("payment_due_offset_days", ""), "Payment due offset days"
+    )
+
+    starting_balance_raw = form.get("starting_balance", "").strip()
+    starting_balance = (
+        _parse_decimal(starting_balance_raw, "Starting balance")
+        if starting_balance_raw
+        else None
+    )
+
+    return {
+        "name": name,
+        "statement_close_day": statement_close_day,
+        "payment_due_offset_days": payment_due_offset_days,
+        "starting_balance": starting_balance,
+    }
+
+
+@settings_bp.route("/credit-cards", methods=["POST"])
 @login_required
-def update_credit_card():
+def create_credit_card():
     try:
-        name = request.form.get("name", "").strip()
-        if not name:
-            raise ValueError("Name is required.")
-        statement_close_day = _parse_int(
-            request.form.get("statement_close_day", ""), "Statement close day"
-        )
-        if not 1 <= statement_close_day <= 31:
-            raise ValueError("Statement close day must be between 1 and 31.")
-        payment_due_offset_days = _parse_int(
-            request.form.get("payment_due_offset_days", ""),
-            "Payment due offset days",
-        )
-
-        starting_balance_raw = request.form.get("starting_balance", "").strip()
-        starting_balance = (
-            _parse_decimal(starting_balance_raw, "Starting balance")
-            if starting_balance_raw
-            else None
-        )
-
-        credit_card = CreditCard.query.filter_by(is_default=True).first()
-        if credit_card is None:
-            credit_card = CreditCard(name=name)
-            db.session.add(credit_card)
-
-        credit_card.name = name
-        credit_card.statement_close_day = statement_close_day
-        credit_card.payment_due_offset_days = payment_due_offset_days
-        credit_card.starting_balance = starting_balance
-        CreditCard.set_default(credit_card)
+        fields = _parse_credit_card_form(request.form)
+        is_first_card = CreditCard.query.count() == 0
+        card = CreditCard(**fields)
+        db.session.add(card)
+        if is_first_card or request.form.get("is_default"):
+            db.session.flush()
+            CreditCard.set_default(card)
         db.session.commit()
     except ValueError as exc:
         flash(str(exc))
 
+    return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/credit-cards/<int:card_id>", methods=["POST"])
+@login_required
+def update_credit_card(card_id):
+    card = CreditCard.query.get_or_404(card_id)
+
+    try:
+        fields = _parse_credit_card_form(request.form)
+        card.name = fields["name"]
+        card.statement_close_day = fields["statement_close_day"]
+        card.payment_due_offset_days = fields["payment_due_offset_days"]
+        card.starting_balance = fields["starting_balance"]
+        if request.form.get("is_default"):
+            CreditCard.set_default(card)
+        db.session.commit()
+    except ValueError as exc:
+        flash(str(exc))
+
+    return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/credit-cards/<int:card_id>/set-default", methods=["POST"])
+@login_required
+def set_default_credit_card(card_id):
+    card = CreditCard.query.get_or_404(card_id)
+    CreditCard.set_default(card)
+    db.session.commit()
     return redirect(url_for("settings.index"))
 
 

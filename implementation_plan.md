@@ -91,7 +91,7 @@ design rationale before implementing any item below.
 - [x] Block deleting a card that's still referenced by any transaction/
       series, or that is the current default (must reassign/promote first);
       block deleting the last remaining card entirely
-- [ ] Settings page: manage list of credit cards (add/edit/delete, set
+- [x] Settings page: manage list of credit cards (add/edit/delete, set
       default) replacing the single-card form
 - [ ] Transaction add/edit form + Recurring Series form: credit card
       selector, shown only when kind=credit, defaults to the default card,

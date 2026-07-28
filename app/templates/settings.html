@@ -42,30 +42,50 @@
     </tbody>
   </table>
 
-  <h2 class="h5 mt-4">Credit card</h2>
-  <form method="post" action="{{ url_for('settings.update_credit_card') }}" class="row g-2 align-items-end">
-    <div class="col-auto">
-      <label class="form-label">Name</label>
-      <input type="text" class="form-control form-control-sm" name="name"
-             value="{{ credit_card.name if credit_card else 'Default Credit Card' }}" required>
-    </div>
-    <div class="col-auto">
-      <label class="form-label">Statement close day</label>
-      <input type="number" min="1" max="31" class="form-control form-control-sm" name="statement_close_day"
-             value="{{ credit_card.statement_close_day if credit_card else '' }}" required>
-    </div>
-    <div class="col-auto">
-      <label class="form-label">Payment due offset (days)</label>
-      <input type="number" class="form-control form-control-sm" name="payment_due_offset_days"
-             value="{{ credit_card.payment_due_offset_days if credit_card else '' }}" required>
-    </div>
-    <div class="col-auto">
-      <label class="form-label">Starting balance</label>
-      <input type="number" step="0.01" class="form-control form-control-sm" name="starting_balance"
-             value="{{ credit_card.starting_balance if credit_card else '' }}">
-    </div>
-    <div class="col-auto">
-      <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg"></i> Save</button>
-    </div>
-  </form>
+  <h2 class="h5 mt-4">Credit cards</h2>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Statement close day</th>
+        <th>Payment due offset (days)</th>
+        <th>Starting balance</th>
+        <th>Default</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for card in credit_cards %}
+        <tr>
+          <td><input type="text" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="name" value="{{ card.name }}" required></td>
+          <td><input type="number" min="1" max="31" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="statement_close_day" value="{{ card.statement_close_day }}" required></td>
+          <td><input type="number" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="payment_due_offset_days" value="{{ card.payment_due_offset_days }}" required></td>
+          <td><input type="number" step="0.01" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="starting_balance" value="{{ card.starting_balance }}"></td>
+          <td class="text-center">
+            {% if card.is_default %}
+              <span class="badge text-bg-primary">Default</span>
+            {% else %}
+              <button type="submit" form="default-card-{{ card.id }}" class="btn btn-outline-secondary btn-sm">Make default</button>
+            {% endif %}
+          </td>
+          <td class="text-nowrap">
+            <button type="submit" form="edit-card-{{ card.id }}" class="btn btn-primary btn-sm"><i class="bi bi-check-lg"></i> Save</button>
+            <button type="submit" form="delete-card-{{ card.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
+          </td>
+        </tr>
+        <form id="edit-card-{{ card.id }}" method="post" action="{{ url_for('settings.update_credit_card', card_id=card.id) }}"></form>
+        <form id="default-card-{{ card.id }}" method="post" action="{{ url_for('settings.set_default_credit_card', card_id=card.id) }}"></form>
+        <form id="delete-card-{{ card.id }}" method="post" action="{{ url_for('settings.delete_credit_card', card_id=card.id) }}"></form>
+      {% endfor %}
+      <tr>
+        <td><input type="text" form="create-card" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
+        <td><input type="number" min="1" max="31" form="create-card" class="form-control form-control-sm" name="statement_close_day" placeholder="15" required></td>
+        <td><input type="number" form="create-card" class="form-control form-control-sm" name="payment_due_offset_days" placeholder="20" required></td>
+        <td><input type="number" step="0.01" form="create-card" class="form-control form-control-sm" name="starting_balance" placeholder="0.00"></td>
+        <td></td>
+        <td><button type="submit" form="create-card" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
+      </tr>
+      <form id="create-card" method="post" action="{{ url_for('settings.create_credit_card') }}"></form>
+    </tbody>
+  </table>
 {% endblock %}
