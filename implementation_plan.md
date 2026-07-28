@@ -103,7 +103,7 @@ design rationale before implementing any item below.
 - [x] Payment-due row computation: use override amount when present for
       that (card, due_date), else the computed sum; expose which one it is
       in the API response
-- [ ] UI: "edit estimate" control on payment-due rows to set/clear the
+- [x] UI: "edit estimate" control on payment-due rows to set/clear the
       override (distinct from normal inline row editing); visually
       distinguish "estimated" vs "overridden" rows; show card name on the
       row when more than one card exists

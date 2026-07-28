@@ -1381,3 +1381,104 @@ def test_create_series_credit_without_any_card_fails(client):
         },
     )
     assert response.status_code == 400
+
+
+def _create_card(app, card_id=1, name="Default Credit Card"):
+    with app.app_context():
+        db.session.add(CreditCard(
+            id=card_id,
+            name=name,
+            is_default=True,
+            statement_close_day=15,
+            payment_due_offset_days=10,
+            starting_balance=Decimal("0"),
+        ))
+        db.session.commit()
+
+
+def test_set_credit_due_override_creates_row(client, app):
+    _create_card(app)
+
+    response = client.put(
+        "/transactions/credit-due-overrides",
+        json={"credit_card_id": 1, "due_date": "2026-07-25", "amount": "-200.00", "notes": "fee"},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["amount"] == "-200.00"
+    assert data["notes"] == "fee"
+
+    with app.app_context():
+        override = CreditDueOverride.query.filter_by(
+            credit_card_id=1, due_date=dt.date(2026, 7, 25)
+        ).one()
+        assert override.amount == Decimal("-200.00")
+
+
+def test_set_credit_due_override_replaces_existing_row_for_same_card_and_date(client, app):
+    _create_card(app)
+    client.put(
+        "/transactions/credit-due-overrides",
+        json={"credit_card_id": 1, "due_date": "2026-07-25", "amount": "-200.00"},
+    )
+
+    response = client.put(
+        "/transactions/credit-due-overrides",
+        json={"credit_card_id": 1, "due_date": "2026-07-25", "amount": "-250.00"},
+    )
+    assert response.status_code == 200
+
+    with app.app_context():
+        overrides = CreditDueOverride.query.filter_by(
+            credit_card_id=1, due_date=dt.date(2026, 7, 25)
+        ).all()
+        assert len(overrides) == 1
+        assert overrides[0].amount == Decimal("-250.00")
+
+
+def test_set_credit_due_override_rejects_unknown_card(client):
+    response = client.put(
+        "/transactions/credit-due-overrides",
+        json={"credit_card_id": 999, "due_date": "2026-07-25", "amount": "-200.00"},
+    )
+    assert response.status_code == 400
+
+
+def test_set_credit_due_override_rejects_missing_amount(client, app):
+    _create_card(app)
+    response = client.put(
+        "/transactions/credit-due-overrides",
+        json={"credit_card_id": 1, "due_date": "2026-07-25"},
+    )
+    assert response.status_code == 400
+
+
+def test_clear_credit_due_override_deletes_row(client, app):
+    _create_card(app)
+    client.put(
+        "/transactions/credit-due-overrides",
+        json={"credit_card_id": 1, "due_date": "2026-07-25", "amount": "-200.00"},
+    )
+
+    response = client.delete(
+        "/transactions/credit-due-overrides",
+        query_string={"credit_card_id": 1, "due_date": "2026-07-25"},
+    )
+    assert response.status_code == 200
+
+    with app.app_context():
+        assert (
+            CreditDueOverride.query.filter_by(
+                credit_card_id=1, due_date=dt.date(2026, 7, 25)
+            ).first()
+            is None
+        )
+
+
+def test_clear_credit_due_override_is_a_no_op_when_no_override_exists(client, app):
+    _create_card(app)
+    response = client.delete(
+        "/transactions/credit-due-overrides",
+        query_string={"credit_card_id": 1, "due_date": "2026-07-25"},
+    )
+    assert response.status_code == 200

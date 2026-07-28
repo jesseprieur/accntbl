@@ -11,6 +11,11 @@
   const creditCardsDataEl = document.getElementById("credit-cards-data");
   const creditCards = creditCardsDataEl ? JSON.parse(creditCardsDataEl.textContent) : [];
 
+  function cardName(cardId) {
+    const card = creditCards.find((c) => String(c.id) === String(cardId));
+    return card ? card.name : "";
+  }
+
   function cardOptionsHtml(selectedId) {
     const selected = selectedId == null ? defaultCreditCardId : String(selectedId);
     return creditCards
@@ -68,6 +73,13 @@
   // Raw row data keyed by transaction id, so an in-progress edit can be
   // cancelled back to its last-known-good values without a round trip.
   const rowDataById = new Map();
+  // Payment-due (virtual) rows have no transaction id, so they're keyed by
+  // card + due date instead, for the "edit estimate" modal to prefill from.
+  const paymentDueRowsByKey = new Map();
+
+  function paymentDueKey(creditCardId, dueDate) {
+    return `${creditCardId}:${dueDate}`;
+  }
 
   function buildRow(row) {
     if (row.is_month_end) {
@@ -75,6 +87,8 @@
     }
     if (row.id != null) {
       rowDataById.set(String(row.id), row);
+    } else if (row.is_virtual && row.credit_card_id != null) {
+      paymentDueRowsByKey.set(paymentDueKey(row.credit_card_id, row.date), row);
     }
     return buildViewRow(row);
   }
@@ -88,6 +102,7 @@
     }
     const isSkipped = row.occurrence_status === "skipped";
     const isAttached = row.occurrence_status === "attached";
+    const isPaymentDue = row.is_virtual && row.credit_card_id != null;
     const editable = !row.is_virtual && !isSkipped;
     const skippable = !row.is_virtual && isAttached;
     const unskippable = !row.is_virtual && isSkipped && row.recurring_series_id != null;
@@ -99,9 +114,16 @@
       tr.dataset.seriesId = row.recurring_series_id;
       tr.classList.add("series-attached-row");
     }
+    if (isPaymentDue) {
+      tr.dataset.creditCardId = row.credit_card_id;
+      tr.classList.add(row.is_override ? "payment-due-overridden" : "payment-due-estimated");
+    }
+    const paymentDueLabel = isPaymentDue
+      ? `${creditCards.length > 1 ? `${Escape.html(cardName(row.credit_card_id))} — ` : ""}<span class="badge ${row.is_override ? "text-bg-warning" : "text-bg-secondary"}">${row.is_override ? "Overridden" : "Estimated"}</span>`
+      : "";
     tr.innerHTML = `
       <td>${row.date}</td>
-      <td>${row.name}</td>
+      <td>${row.name}${paymentDueLabel ? `<br>${paymentDueLabel}` : ""}</td>
       <td>${amountSpan(row.cash_amount)}</td>
       <td>${amountSpan(row.credit_amount)}</td>
       <td>${runningTotalSpan(row)}</td>
@@ -111,6 +133,7 @@
         ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip"><i class="bi bi-skip-forward"></i> Skip</button>' : ""}
         ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip"><i class="bi bi-arrow-counterclockwise"></i> Un-skip</button>' : ""}
         ${deletable ? '<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete"><i class="bi bi-trash"></i> Delete</button>' : ""}
+        ${isPaymentDue ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit-estimate"><i class="bi bi-pencil"></i> Edit estimate</button>' : ""}
       </td>
     `;
     return tr;
@@ -288,7 +311,97 @@
       .catch(() => AppErrors.show(AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
+  const editEstimateModalEl = document.getElementById("edit-estimate-modal");
+  const editEstimateForm = document.getElementById("edit-estimate-form");
+  const editEstimateError = document.getElementById("edit-estimate-error");
+  const editEstimateClearButton = document.getElementById("edit-estimate-clear");
+
+  function openEditEstimateModal(creditCardId, dueDate) {
+    if (!editEstimateForm || !editEstimateModalEl) return;
+    const row = paymentDueRowsByKey.get(paymentDueKey(creditCardId, dueDate));
+    if (!row) return;
+    editEstimateForm.elements["credit_card_id"].value = creditCardId;
+    editEstimateForm.elements["due_date"].value = dueDate;
+    editEstimateForm.elements["amount"].value = formatAmount(row.cash_amount);
+    editEstimateForm.elements["notes"].value = row.notes || "";
+    editEstimateError.classList.add("d-none");
+    editEstimateClearButton.classList.toggle("d-none", !row.is_override);
+    const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editEstimateModalEl) : null;
+    if (modal) modal.show();
+  }
+
+  if (editEstimateForm) {
+    editEstimateForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(editEstimateForm);
+      const body = {
+        credit_card_id: formData.get("credit_card_id"),
+        due_date: formData.get("due_date"),
+        amount: formData.get("amount"),
+        notes: formData.get("notes") || null,
+      };
+      fetch("/transactions/credit-due-overrides", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            editEstimateError.textContent = data.error || "Failed to save estimate.";
+            editEstimateError.classList.remove("d-none");
+            return;
+          }
+          editEstimateError.classList.add("d-none");
+          const modal = window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(editEstimateModalEl)
+            : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        })
+        .catch(() => {
+          editEstimateError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
+          editEstimateError.classList.remove("d-none");
+        });
+    });
+  }
+
+  if (editEstimateClearButton) {
+    editEstimateClearButton.addEventListener("click", () => {
+      const creditCardId = editEstimateForm.elements["credit_card_id"].value;
+      const dueDate = editEstimateForm.elements["due_date"].value;
+      fetch(
+        `/transactions/credit-due-overrides?credit_card_id=${encodeURIComponent(creditCardId)}&due_date=${encodeURIComponent(dueDate)}`,
+        { method: "DELETE" }
+      )
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            editEstimateError.textContent = data.error || "Failed to clear override.";
+            editEstimateError.classList.remove("d-none");
+            return;
+          }
+          const modal = window.bootstrap
+            ? window.bootstrap.Modal.getOrCreateInstance(editEstimateModalEl)
+            : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        })
+        .catch(() => {
+          editEstimateError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
+          editEstimateError.classList.remove("d-none");
+        });
+    });
+  }
+
   tbody.addEventListener("click", (event) => {
+    const editEstimateButton = event.target.closest('[data-action="edit-estimate"]');
+    if (editEstimateButton) {
+      const tr = editEstimateButton.closest("tr");
+      if (tr) openEditEstimateModal(tr.dataset.creditCardId, tr.dataset.date);
+      return;
+    }
+
     const editButton = event.target.closest('[data-action="edit"]');
     if (editButton) {
       const tr = editButton.closest("tr");

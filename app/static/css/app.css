@@ -20,3 +20,7 @@
 .month-end-row {
   border-top: 2px solid var(--bs-secondary);
 }
+
+.payment-due-overridden {
+  border-left: 4px solid var(--bs-warning);
+}

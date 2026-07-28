@@ -565,6 +565,72 @@ def delete_series(series_id):
     return jsonify({"deleted": True, "id": series_id})
 
 
+def _serialize_override(override):
+    return {
+        "id": override.id,
+        "credit_card_id": override.credit_card_id,
+        "due_date": override.due_date.isoformat(),
+        "amount": str(override.amount),
+        "notes": override.notes,
+    }
+
+
+@transactions_bp.route("/credit-due-overrides", methods=["PUT"])
+@login_required
+def set_credit_due_override():
+    """Set (create or replace) the payment-due override for a (card, due_date).
+
+    Overrides the computed statement-period sum shown on a payment-due row
+    with a manual amount (see specs.md § "Credit card payment logic").
+    """
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        credit_card_id = payload.get("credit_card_id")
+        if not CreditCard.query.get(credit_card_id):
+            raise ValueError("Credit card not found.")
+        due_date = _parse_date_param(payload.get("due_date"), "Due date")
+        amount = _parse_decimal_field(payload.get("amount"), "Amount")
+        if amount is None:
+            raise ValueError("Amount is required.")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    override = CreditDueOverride.query.filter_by(
+        credit_card_id=credit_card_id, due_date=due_date
+    ).first()
+    if override is None:
+        override = CreditDueOverride(credit_card_id=credit_card_id, due_date=due_date)
+        db.session.add(override)
+    override.amount = amount
+    override.notes = (payload.get("notes") or "").strip() or None
+
+    db.session.commit()
+
+    return jsonify(_serialize_override(override))
+
+
+@transactions_bp.route("/credit-due-overrides", methods=["DELETE"])
+@login_required
+def clear_credit_due_override():
+    """Clear a payment-due override, reverting that (card, due_date) row to its
+    computed estimate."""
+    try:
+        credit_card_id = request.args.get("credit_card_id", type=int)
+        due_date = _parse_date_param(request.args.get("due_date", ""), "Due date")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    override = CreditDueOverride.query.filter_by(
+        credit_card_id=credit_card_id, due_date=due_date
+    ).first()
+    if override is not None:
+        db.session.delete(override)
+        db.session.commit()
+
+    return jsonify({"deleted": True})
+
+
 @transactions_bp.route("/<int:transaction_id>", methods=["PATCH"])
 @login_required
 def update(transaction_id):
