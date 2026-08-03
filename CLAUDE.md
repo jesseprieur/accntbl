@@ -1,0 +1,1 @@
+- Use `source .venv/bin/activate` for any python-related calls
