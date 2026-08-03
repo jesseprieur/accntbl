@@ -31,7 +31,8 @@ def upgrade():
     sa.Column('is_default', sa.Boolean(), nullable=False),
     sa.Column('statement_close_day', sa.Integer(), nullable=False),
     sa.Column('payment_due_offset_days', sa.Integer(), nullable=False),
-    sa.Column('starting_balance', sa.Numeric(precision=12, scale=2), nullable=True),
+    sa.Column('starting_balance', sa.Numeric(precision=12, scale=2), nullable=False, server_default='0'),
+    sa.Column('starting_balance_due_date', sa.Date(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('recurring_series',

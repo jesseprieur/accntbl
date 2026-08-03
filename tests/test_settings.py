@@ -130,8 +130,39 @@ def test_create_credit_card_settings(client, app):
         assert settings.statement_close_day == 15
         assert settings.payment_due_offset_days == 20
         assert settings.starting_balance == Decimal("250.00")
+        assert settings.starting_balance_due_date is not None
         # First card created is automatically the default.
         assert settings.is_default is True
+
+
+def test_create_credit_card_requires_starting_balance(client, app):
+    client.post(
+        "/settings/credit-cards",
+        data={
+            "name": "No Balance Card",
+            "statement_close_day": "15",
+            "payment_due_offset_days": "20",
+        },
+    )
+
+    with app.app_context():
+        assert CreditCard.query.filter_by(name="No Balance Card").one_or_none() is None
+
+
+def test_create_credit_card_allows_negative_starting_balance(client, app):
+    client.post(
+        "/settings/credit-cards",
+        data={
+            "name": "Mid-Cycle Card",
+            "statement_close_day": "15",
+            "payment_due_offset_days": "20",
+            "starting_balance": "-75.25",
+        },
+    )
+
+    with app.app_context():
+        card = CreditCard.query.filter_by(name="Mid-Cycle Card").one()
+        assert card.starting_balance == Decimal("-75.25")
 
 
 def test_create_second_credit_card_is_not_default_by_default(client, app):
@@ -152,6 +183,7 @@ def test_create_second_credit_card_is_not_default_by_default(client, app):
             "name": "Second Card",
             "statement_close_day": "15",
             "payment_due_offset_days": "20",
+            "starting_balance": "0.00",
         },
     )
 
@@ -189,6 +221,8 @@ def test_update_credit_card_settings(client, app):
         settings = CreditCard.query.one()
         assert settings.name == "Updated Card"
         assert settings.statement_close_day == 20
+        # Immutable after creation: the posted "100.00" must be ignored.
+        assert settings.starting_balance == Decimal("0.00")
 
 
 def test_set_default_credit_card(client, app):

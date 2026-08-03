@@ -60,7 +60,7 @@
           <td><input type="text" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="name" value="{{ card.name }}" required></td>
           <td><input type="number" min="1" max="31" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="statement_close_day" value="{{ card.statement_close_day }}" required></td>
           <td><input type="number" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="payment_due_offset_days" value="{{ card.payment_due_offset_days }}" required></td>
-          <td><input type="number" step="0.01" form="edit-card-{{ card.id }}" class="form-control form-control-sm" name="starting_balance" value="{{ card.starting_balance }}"></td>
+          <td><input type="number" step="0.01" class="form-control form-control-sm" value="{{ card.starting_balance }}" disabled title="Starting balance is set at creation and can't be changed."></td>
           <td class="text-center">
             {% if card.is_default %}
               <span class="badge text-bg-primary">Default</span>
@@ -81,7 +81,7 @@
         <td><input type="text" form="create-card" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
         <td><input type="number" min="1" max="31" form="create-card" class="form-control form-control-sm" name="statement_close_day" placeholder="15" required></td>
         <td><input type="number" form="create-card" class="form-control form-control-sm" name="payment_due_offset_days" placeholder="20" required></td>
-        <td><input type="number" step="0.01" form="create-card" class="form-control form-control-sm" name="starting_balance" placeholder="0.00"></td>
+        <td><input type="number" step="0.01" form="create-card" class="form-control form-control-sm" name="starting_balance" placeholder="0.00" required></td>
         <td></td>
         <td><button type="submit" form="create-card" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
       </tr>

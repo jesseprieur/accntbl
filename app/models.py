@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from decimal import Decimal
 
 from app.extensions import db
 
@@ -56,7 +57,11 @@ class CreditCard(db.Model):
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     statement_close_day = db.Column(db.Integer, nullable=False)
     payment_due_offset_days = db.Column(db.Integer, nullable=False)
-    starting_balance = db.Column(db.Numeric(12, 2), nullable=True)
+    starting_balance = db.Column(db.Numeric(12, 2), nullable=False, default=Decimal("0.00"))
+    # Due date the (immutable, set-at-creation) starting_balance is seeded
+    # onto — see specs.md § `credit_cards` and services/credit_card.py's
+    # `compute_starting_balance_due_date`.
+    starting_balance_due_date = db.Column(db.Date, nullable=True)
 
     @classmethod
     def set_default(cls, card):

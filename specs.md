@@ -46,8 +46,12 @@ Alembic batch mode).
 - is_default (bool)
 - statement_close_day (int, day of month statement closes)
 - payment_due_offset_days (int, days after close that payment is due)
-- starting_balance (decimal, optional seed for amount currently owed before
-  the app starts tracking Credit +/- transactions on this card)
+- starting_balance (decimal, required at creation, may be negative or
+  positive, immutable afterward — seeds the amount already owed on this card
+  before the app starts tracking Credit +/- transactions on it; see "Credit
+  card payment logic" below for how it's applied)
+- starting_balance_due_date (date, set once at creation, never
+  recalculated or exposed for editing — see "Credit card payment logic")
 
 Deleting a card is blocked if any `transactions` or `recurring_series` still
 reference it (must reassign those first) or if it is the current default
@@ -138,7 +142,18 @@ cycle. Instead, this runs independently **per card**:
    only the aggregated due-row amount is replaced. Clearing the override
    (deleting the `credit_due_overrides` row) reverts to the computed
    estimate.
-6. The generated payment-due row behaves like a normal cash row in the table
+6. **Starting balance seeding:** at card creation, `starting_balance_due_date`
+   is computed once (and stored, immutably) as the due date of the most
+   recently *closed* statement period as of "now" — i.e. the next payment
+   already coming due whose statement period is fully in the past, so no
+   Credit +/- transactions could have been entered for it yet. That due
+   date's computed sum (step 2 above) has `starting_balance` added to it
+   (can be negative, e.g. existing spend on a card added mid-cycle, or
+   positive/zero for a brand-new card). This only ever affects that one
+   due date — it does not recur or affect any other period — and is
+   overridden like any other computed estimate if the user sets a
+   `credit_due_overrides` row for that (card, due date).
+7. The generated payment-due row behaves like a normal cash row in the table
    (shows up, affects running total) but the Credit +/- transactions
    underneath it are still edited individually — the row itself is not
    inline-editable like a normal transaction; instead it exposes a distinct

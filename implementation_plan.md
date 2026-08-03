@@ -110,6 +110,10 @@ design rationale before implementing any item below.
 - [x] Update seed script for multi-card sample data
 - [x] Unit tests: multiple cards, default-card enforcement, per-card
       statement periods, override precedence, delete-blocking rules
+- [x] `starting_balance` made required (positive or negative) and
+      immutable after creation; `starting_balance_due_date` computed once
+      at creation and seeded into that due date's computed estimate (see
+      specs.md § "Credit card payment logic" point 6)
 
 ## 9. Polish / validation
 - [x] Color coded rows

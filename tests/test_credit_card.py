@@ -3,15 +3,28 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from app.models import Kind, OccurrenceStatus
-from app.services.credit_card import payment_due_transactions, statement_periods
+from app.services.credit_card import (
+    compute_starting_balance_due_date,
+    payment_due_transactions,
+    statement_periods,
+)
 
 
-def make_settings(statement_close_day, payment_due_offset_days=20, name="Default Credit Card", id=1):
+def make_settings(
+    statement_close_day,
+    payment_due_offset_days=20,
+    name="Default Credit Card",
+    id=1,
+    starting_balance=None,
+    starting_balance_due_date=None,
+):
     return SimpleNamespace(
         id=id,
         name=name,
         statement_close_day=statement_close_day,
         payment_due_offset_days=payment_due_offset_days,
+        starting_balance=starting_balance,
+        starting_balance_due_date=starting_balance_due_date,
     )
 
 
@@ -242,3 +255,72 @@ def test_payment_due_transaction_carries_credit_card_id():
         settings, [], dt.date(2026, 2, 1), dt.date(2026, 2, 28)
     )
     assert dues[0].credit_card_id == 7
+
+
+def test_compute_starting_balance_due_date_uses_most_recently_closed_period():
+    # Statement closes on the 15th; "today" is the 20th, so the period that
+    # closed this month (the 15th) is the most recently closed one.
+    due_date = compute_starting_balance_due_date(
+        statement_close_day=15, payment_due_offset_days=20, today=dt.date(2026, 3, 20)
+    )
+    assert due_date == dt.date(2026, 3, 15) + dt.timedelta(days=20)
+
+
+def test_compute_starting_balance_due_date_before_this_months_close():
+    # "Today" is before this month's close day, so the most recently closed
+    # period is last month's.
+    due_date = compute_starting_balance_due_date(
+        statement_close_day=15, payment_due_offset_days=20, today=dt.date(2026, 3, 10)
+    )
+    assert due_date == dt.date(2026, 2, 15) + dt.timedelta(days=20)
+
+
+def test_payment_due_adds_starting_balance_to_its_seeded_due_date():
+    seeded_due_date = dt.date(2026, 2, 4)
+    settings = make_settings(
+        statement_close_day=15,
+        payment_due_offset_days=20,
+        starting_balance=Decimal("-340.00"),
+        starting_balance_due_date=seeded_due_date,
+    )
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+    ]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28)
+    )
+    assert dues[0].date == seeded_due_date
+    assert dues[0].cash_amount == Decimal("-390.00")
+
+
+def test_payment_due_starting_balance_does_not_affect_other_periods():
+    settings = make_settings(
+        statement_close_day=15,
+        payment_due_offset_days=20,
+        starting_balance=Decimal("-340.00"),
+        starting_balance_due_date=dt.date(2026, 1, 4),
+    )
+    transactions = [
+        make_transaction(dt.date(2026, 1, 5), credit_amount=Decimal("-50.00")),
+    ]
+    dues = payment_due_transactions(
+        settings, transactions, dt.date(2026, 2, 1), dt.date(2026, 2, 28)
+    )
+    assert dues[0].cash_amount == Decimal("-50.00")
+
+
+def test_payment_due_override_still_wins_on_seeded_due_date():
+    seeded_due_date = dt.date(2026, 2, 4)
+    settings = make_settings(
+        statement_close_day=15,
+        payment_due_offset_days=20,
+        id=1,
+        starting_balance=Decimal("-340.00"),
+        starting_balance_due_date=seeded_due_date,
+    )
+    overrides = [make_override(1, seeded_due_date, Decimal("-500.00"))]
+    dues = payment_due_transactions(
+        settings, [], dt.date(2026, 2, 1), dt.date(2026, 2, 28), overrides=overrides
+    )
+    assert dues[0].cash_amount == Decimal("-500.00")
+    assert dues[0].is_override is True

@@ -6,6 +6,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from app.auth import login_required
 from app.extensions import db
 from app.models import CheckingAccount, CreditCard
+from app.services.credit_card import compute_starting_balance_due_date
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
 
@@ -114,18 +115,10 @@ def _parse_credit_card_form(form):
         form.get("payment_due_offset_days", ""), "Payment due offset days"
     )
 
-    starting_balance_raw = form.get("starting_balance", "").strip()
-    starting_balance = (
-        _parse_decimal(starting_balance_raw, "Starting balance")
-        if starting_balance_raw
-        else None
-    )
-
     return {
         "name": name,
         "statement_close_day": statement_close_day,
         "payment_due_offset_days": payment_due_offset_days,
-        "starting_balance": starting_balance,
     }
 
 
@@ -134,8 +127,17 @@ def _parse_credit_card_form(form):
 def create_credit_card():
     try:
         fields = _parse_credit_card_form(request.form)
+        starting_balance = _parse_decimal(
+            request.form.get("starting_balance", ""), "Starting balance"
+        )
         is_first_card = CreditCard.query.count() == 0
-        card = CreditCard(**fields)
+        card = CreditCard(
+            **fields,
+            starting_balance=starting_balance,
+            starting_balance_due_date=compute_starting_balance_due_date(
+                fields["statement_close_day"], fields["payment_due_offset_days"]
+            ),
+        )
         db.session.add(card)
         if is_first_card or request.form.get("is_default"):
             db.session.flush()
@@ -157,7 +159,6 @@ def update_credit_card(card_id):
         card.name = fields["name"]
         card.statement_close_day = fields["statement_close_day"]
         card.payment_due_offset_days = fields["payment_due_offset_days"]
-        card.starting_balance = fields["starting_balance"]
         if request.form.get("is_default"):
             CreditCard.set_default(card)
         db.session.commit()

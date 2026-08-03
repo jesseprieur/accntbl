@@ -15,6 +15,7 @@ from app.models import (
     Transaction,
     User,
 )
+from app.services.credit_card import compute_starting_balance_due_date
 from app.services.recurring import generate_occurrences
 
 
@@ -62,6 +63,7 @@ def seed_demo_data_command():
         statement_close_day=20,
         payment_due_offset_days=15,
         starting_balance=Decimal("340.00"),
+        starting_balance_due_date=compute_starting_balance_due_date(20, 15, today=today),
     )
     db.session.add(default_card)
     rewards_card = CreditCard(
@@ -71,6 +73,7 @@ def seed_demo_data_command():
         statement_close_day=5,
         payment_due_offset_days=21,
         starting_balance=Decimal("125.50"),
+        starting_balance_due_date=compute_starting_balance_due_date(5, 21, today=today),
     )
     db.session.add(rewards_card)
 
