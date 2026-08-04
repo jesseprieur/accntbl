@@ -103,6 +103,45 @@ def test_window_returns_rows_within_range_with_running_total(client, app):
     assert rent["is_virtual"] is False
 
 
+def test_window_row_occurrence_state_distinguishes_one_off_from_series(client, app):
+    # The frontend's Delete/Skip row button is state-dependent purely on
+    # these two fields (see specs.md "Recurring series editing semantics"):
+    # a one-off transaction must never look "attached" to a series it isn't
+    # part of, and a series occurrence must always report attached status
+    # alongside its series id.
+    with app.app_context():
+        db.session.add(Transaction(
+            name="One-off gift", kind=Kind.cash, amount=Decimal("50.00"), date=dt.date(2026, 7, 12)
+        ))
+        db.session.commit()
+
+    series_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Rent",
+            "kind": "cash",
+            "amount": "-1200.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    series_id = series_response.get_json()["id"]
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    rows = {row["name"]: row for row in response.get_json()["rows"] if not row["is_month_end"]}
+
+    one_off = rows["One-off gift"]
+    assert one_off["occurrence_status"] is None
+    assert one_off["recurring_series_id"] is None
+
+    series_row = rows["Rent"]
+    assert series_row["occurrence_status"] == "attached"
+    assert series_row["recurring_series_id"] == series_id
+
+
 def test_window_includes_virtual_credit_card_payment_rows(client, app):
     with app.app_context():
         db.session.add(CheckingAccount(

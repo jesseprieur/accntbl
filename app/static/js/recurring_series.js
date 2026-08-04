@@ -30,12 +30,19 @@
       <td>${cadenceLabel(series)}</td>
       <td>${series.start_date}</td>
       <td>${series.end_date || ""}</td>
-      <td>${Escape.html(series.notes || "")}</td>
       <td class="text-nowrap">
+        ${series.notes ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="notes" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top"><i class="bi bi-info-circle"></i> Notes</button>' : ""}
         <button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit"><i class="bi bi-pencil"></i> Edit</button>
         <button type="button" class="btn btn-outline-danger btn-sm" data-action="delete"><i class="bi bi-trash"></i> Delete</button>
       </td>
     `;
+    if (series.notes) {
+      const notesButton = tr.querySelector('[data-action="notes"]');
+      if (notesButton && window.bootstrap) {
+        notesButton.setAttribute("data-bs-content", series.notes);
+        new window.bootstrap.Popover(notesButton, { title: "Notes" });
+      }
+    }
     return tr;
   }
 
@@ -45,7 +52,7 @@
       .then((data) => {
         tbody.innerHTML = "";
         if (data.series.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-muted">No recurring series yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No recurring series yet.</td></tr>';
           return;
         }
         data.series.forEach((series) => tbody.appendChild(buildRow(series)));

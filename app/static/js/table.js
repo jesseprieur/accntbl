@@ -81,6 +81,12 @@
     return `${creditCardId}:${dueDate}`;
   }
 
+  function initNotesPopover(button, notes) {
+    if (!button || !window.bootstrap) return;
+    button.setAttribute("data-bs-content", notes);
+    new window.bootstrap.Popover(button, { title: "Notes" });
+  }
+
   function buildRow(row) {
     if (row.is_month_end) {
       return buildMonthEndRow(row);
@@ -102,15 +108,16 @@
     }
     const isSkipped = row.occurrence_status === "skipped";
     const isAttached = row.occurrence_status === "attached";
+    const isSeriesAttached = isAttached && row.recurring_series_id != null;
     const isPaymentDue = row.is_virtual && row.credit_card_id != null;
     const editable = !row.is_virtual && !isSkipped;
-    const skippable = !row.is_virtual && isAttached;
+    const skippable = !row.is_virtual && isSeriesAttached;
     const unskippable = !row.is_virtual && isSkipped && row.recurring_series_id != null;
-    const deletable = !row.is_virtual && !isSkipped && !isAttached;
+    const deletable = !row.is_virtual && !isSkipped && !isSeriesAttached;
     if (isSkipped) {
       tr.classList.add("text-muted");
     }
-    if (isAttached) {
+    if (isSeriesAttached) {
       tr.dataset.seriesId = row.recurring_series_id;
       tr.classList.add("series-attached-row");
     }
@@ -127,8 +134,8 @@
       <td>${amountSpan(row.cash_amount)}</td>
       <td>${amountSpan(row.credit_amount)}</td>
       <td>${runningTotalSpan(row)}</td>
-      <td>${row.notes || ""}</td>
       <td class="text-nowrap">
+        ${row.notes ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="notes" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top"><i class="bi bi-info-circle"></i> Notes</button>' : ""}
         ${editable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit"><i class="bi bi-pencil"></i> Edit</button>' : ""}
         ${skippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="skip"><i class="bi bi-skip-forward"></i> Skip</button>' : ""}
         ${unskippable ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="unskip"><i class="bi bi-arrow-counterclockwise"></i> Un-skip</button>' : ""}
@@ -136,6 +143,9 @@
         ${isPaymentDue ? '<button type="button" class="btn btn-outline-secondary btn-sm" data-action="edit-estimate"><i class="bi bi-pencil"></i> Edit estimate</button>' : ""}
       </td>
     `;
+    if (row.notes) {
+      initNotesPopover(tr.querySelector('[data-action="notes"]'), row.notes);
+    }
     return tr;
   }
 
@@ -146,7 +156,10 @@
     const isCredit = row.credit_amount != null;
     tr.innerHTML = `
       <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${Escape.html(row.date)}" required></td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="name" value="${Escape.html(row.name)}" required></td>
+      <td>
+        <input type="text" class="form-control form-control-sm border-0" data-field="name" value="${Escape.html(row.name)}" required>
+        <input type="text" class="form-control form-control-sm border-0 mt-1" data-field="notes" placeholder="Notes" value="${Escape.html(row.notes || "")}">
+      </td>
       <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${Escape.html(formatAmount(row.cash_amount))}"></td>
       <td>
         <input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${Escape.html(formatAmount(row.credit_amount))}">
@@ -155,7 +168,6 @@
         </select>
       </td>
       <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
-      <td><input type="text" class="form-control form-control-sm border-0" data-field="notes" value="${Escape.html(row.notes || "")}"></td>
       <td class="text-nowrap">
         <button type="button" class="btn btn-primary btn-sm" data-action="save"><i class="bi bi-check-lg"></i> Save</button>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel"><i class="bi bi-x-lg"></i> Cancel</button>
@@ -174,7 +186,7 @@
   function buildEditRowErrorRow(message) {
     const tr = document.createElement("tr");
     tr.classList.add("edit-row-error");
-    tr.innerHTML = `<td colspan="7" class="text-danger small py-1">${Escape.html(message)}</td>`;
+    tr.innerHTML = `<td colspan="6" class="text-danger small py-1">${Escape.html(message)}</td>`;
     return tr;
   }
 
@@ -209,7 +221,6 @@
       <td></td>
       <td>${runningTotalSpan(row)}</td>
       <td>${changeLabel}</td>
-      <td></td>
     `;
     return tr;
   }
@@ -468,7 +479,7 @@
     tbody.innerHTML = "";
 
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No transactions in this window.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-muted">No transactions in this window.</td></tr>';
       return;
     }
 
