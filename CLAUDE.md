@@ -1,1 +1,2 @@
+- Use `ast-grep` over `grep` when searching code
 - Use `source .venv/bin/activate` for any python-related calls

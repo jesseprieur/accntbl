@@ -133,9 +133,9 @@ design rationale before implementing any item below.
 - [x] Basic error handling/flash messages
 
 ## 10. Testing & local run
-- [ ] `docker-compose up` brings up app + DB cleanly from scratch
-- [ ] Seed script for local dev (sample accounts/transactions)
-- [ ] README instructions verified end-to-end on a clean machine/checkout
+- [x] `docker-compose up` brings up app + DB cleanly from scratch
+- [x] Seed script for local dev (sample accounts/transactions)
+- [x] README instructions verified end-to-end on a clean machine/checkout
 
 
 ## Later (not in scope yet — do not build until asked)
