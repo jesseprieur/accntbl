@@ -8,7 +8,7 @@ design rationale before implementing any item below.
 - [x] `docker-compose.yml` with a single `web` (Flask) service; SQLite file
   persisted in a named volume (no separate DB service/container)
 - [x] Flask app factory + config (dev/test/prod via env vars)
-- [x] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
+- [ ] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
   SQLite-safe migrations)
 - [x] `.env.example` with Flask secret key and app config
 
@@ -117,8 +117,9 @@ design rationale before implementing any item below.
 
 ## 9. Polish / validation
 - [x] Color coded rows
-    - [x] "Detached"/single transactions are not color-coded
-    - [x] Recurring series items have green shaded border
+    - [x] "Detached" transactions have yellow shaded border (ex. --bs-warning)
+    - [x] Single transactions are blue (ex. --bs-primary)
+    - [x] Recurring series items have green shaded border (ex. --bs-success)
     - [x] Negative transactions could be light red
     - [x] Positive transactions could be green
     - [x] Negative running-total should be bright red

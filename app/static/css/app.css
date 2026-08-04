@@ -17,6 +17,14 @@
   border-left: 4px solid var(--bs-success);
 }
 
+.tx-detached-row {
+  border-left: 4px solid var(--bs-warning);
+}
+
+.tx-single-row {
+  border-left: 4px solid var(--bs-primary);
+}
+
 .month-end-row {
   border-top: 2px solid var(--bs-secondary);
 }

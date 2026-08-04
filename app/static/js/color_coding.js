@@ -23,5 +23,17 @@
     return isNegative ? "running-total-negative" : "";
   }
 
-  return { formatAmount, amountClass, runningTotalClass };
+  // Border color coding for a transaction row: green for an in-force series
+  // occurrence, yellow for a detached-from-series occurrence, blue for a
+  // plain one-off (never part of a series). Virtual/payment-due rows get
+  // none of these (they have their own estimated/overridden classes).
+  function rowBorderClass(row) {
+    if (!row || row.is_virtual) return "";
+    if (row.recurring_series_id == null) return "tx-single-row";
+    if (row.occurrence_status === "detached") return "tx-detached-row";
+    if (row.occurrence_status === "attached") return "series-attached-row";
+    return "";
+  }
+
+  return { formatAmount, amountClass, runningTotalClass, rowBorderClass };
 });

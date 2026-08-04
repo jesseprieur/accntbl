@@ -110,6 +110,7 @@
     const isAttached = row.occurrence_status === "attached";
     const isSeriesAttached = isAttached && row.recurring_series_id != null;
     const isPaymentDue = row.is_virtual && row.credit_card_id != null;
+    const rowBorderClass = ColorCoding.rowBorderClass(row);
     const editable = !row.is_virtual && !isSkipped;
     const skippable = !row.is_virtual && isSeriesAttached;
     const unskippable = !row.is_virtual && isSkipped && row.recurring_series_id != null;
@@ -117,9 +118,11 @@
     if (isSkipped) {
       tr.classList.add("text-muted");
     }
-    if (isSeriesAttached) {
+    if (row.recurring_series_id != null) {
       tr.dataset.seriesId = row.recurring_series_id;
-      tr.classList.add("series-attached-row");
+    }
+    if (rowBorderClass) {
+      tr.classList.add(rowBorderClass);
     }
     if (isPaymentDue) {
       tr.dataset.creditCardId = row.credit_card_id;
