@@ -1,5 +1,3 @@
-import datetime as dt
-
 import pytest
 from werkzeug.security import generate_password_hash
 
@@ -35,17 +33,16 @@ def test_index_requires_login(app):
     assert response.status_code == 302
 
 
-def test_index_renders_transactions_window_centered_on_today(client):
+def test_index_renders_transactions_window(client):
     response = client.get("/")
     assert response.status_code == 200
 
     body = response.get_data(as_text=True)
-    today = dt.date.today().isoformat()
 
-    assert f'data-today="{today}"' in body
     assert 'data-window-url="/transactions/window"' in body
     assert 'id="transactions-tbody"' in body
     assert "table.js" in body
+    assert "date_utils.js" in body
 
 
 def test_index_uses_bootstrap_toggle_buttons_for_kind(client):

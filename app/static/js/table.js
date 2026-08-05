@@ -3,7 +3,7 @@
   const tbody = document.getElementById("transactions-tbody");
   if (!container || !tbody) return;
 
-  const today = container.dataset.today;
+  const today = DateUtils.today();
   const windowUrl = container.dataset.windowUrl;
   const defaultCreditCardId = container.dataset.defaultCreditCardId || "";
   const showSkippedToggle = document.getElementById("show-skipped-toggle");
@@ -610,6 +610,12 @@
       radio.addEventListener("change", toggleAddCardField);
     });
     toggleAddCardField();
+
+    if (addModalEl) {
+      addModalEl.addEventListener("show.bs.modal", () => {
+        addForm.elements["date"].value = DateUtils.today();
+      });
+    }
 
     addForm.addEventListener("submit", (event) => {
       event.preventDefault();

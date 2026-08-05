@@ -150,6 +150,11 @@ design rationale before implementing any item below.
       timestamped file download
 - [x] Import endpoint: POST with file upload, validates `schema_version`
       against current Alembic head, rejects on mismatch
+- [ ] Import: Upon choosing a JSON file to import, a validation should run on
+      the file to ensure its in the correct file format, and has the correct JSON
+      top-level strings (ex. `checking_accounts`, etc.). If it is correct, show a
+      green check icon and allow the user to upload; if its not correct, show a
+      red X icon, and do not allow upload 
 - [x] Import: single-transaction full replace (delete existing rows in
       FK-safe order, insert backup rows), rollback whole operation on any
       failure

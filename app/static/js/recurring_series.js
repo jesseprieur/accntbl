@@ -96,6 +96,12 @@
     const addSeriesModalEl = document.getElementById("add-series-modal");
     const addSeriesError = document.getElementById("add-series-error");
 
+    if (addSeriesModalEl) {
+      addSeriesModalEl.addEventListener("show.bs.modal", () => {
+        addSeriesForm.elements["start_date"].value = DateUtils.today();
+      });
+    }
+
     addSeriesForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const formData = new FormData(addSeriesForm);

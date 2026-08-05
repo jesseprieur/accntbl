@@ -135,7 +135,11 @@ def window():
             "id": row.transaction.id if row.transaction is not None else None,
             "name": row.name,
             "date": row.date.isoformat(),
-            "cash_amount": str(row.cash_amount),
+            "cash_amount": (
+                None
+                if row.transaction is not None and row.transaction.kind == Kind.credit
+                else str(row.cash_amount)
+            ),
             "credit_amount": (
                 str(row.transaction.amount)
                 if row.transaction is not None and row.transaction.kind == Kind.credit
@@ -178,7 +182,7 @@ def window():
                 "id": t.id,
                 "name": t.name,
                 "date": t.date.isoformat(),
-                "cash_amount": str(t.amount) if t.kind == Kind.cash else "0",
+                "cash_amount": str(t.amount) if t.kind == Kind.cash else None,
                 "credit_amount": str(t.amount) if t.kind == Kind.credit else None,
                 "notes": t.notes,
                 "credit_card_id": t.credit_card_id,

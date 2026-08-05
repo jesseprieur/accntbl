@@ -1,5 +1,4 @@
 import json
-from datetime import date
 
 from flask import Blueprint, render_template
 
@@ -24,16 +23,10 @@ def _credit_cards_context():
 @main_bp.route("/")
 @login_required
 def index():
-    return render_template(
-        "index.html", today=date.today().isoformat(), **_credit_cards_context()
-    )
+    return render_template("index.html", **_credit_cards_context())
 
 
 @main_bp.route("/recurring-series")
 @login_required
 def recurring_series():
-    return render_template(
-        "recurring_series.html",
-        today=date.today().isoformat(),
-        **_credit_cards_context(),
-    )
+    return render_template("recurring_series.html", **_credit_cards_context())

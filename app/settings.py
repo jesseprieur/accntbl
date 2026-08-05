@@ -43,7 +43,6 @@ def index():
         "settings.html",
         checking_accounts=checking_accounts,
         credit_cards=credit_cards,
-        today=date.today().isoformat(),
     )
 
 

@@ -35,7 +35,7 @@
       <tr>
         <td><input type="text" form="create-account" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
         <td><input type="number" step="0.01" form="create-account" class="form-control form-control-sm" name="starting_balance" placeholder="0.00" required></td>
-        <td><input type="date" form="create-account" class="form-control form-control-sm" name="as_of_date" value="{{ today }}" required></td>
+        <td><input type="date" form="create-account" class="form-control form-control-sm" name="as_of_date" id="create-account-as-of-date" required></td>
         <td><button type="submit" form="create-account" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
       </tr>
       <form id="create-account" method="post" action="{{ url_for('settings.create_checking_account') }}"></form>
@@ -118,4 +118,10 @@
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    document.getElementById("create-account-as-of-date").value = DateUtils.today();
+  </script>
 {% endblock %}

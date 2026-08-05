@@ -31,7 +31,7 @@
             </div>
             <div class="mb-2">
               <label class="form-label">Date</label>
-              <input type="date" class="form-control form-control-sm" name="date" value="{{ today }}" required>
+              <input type="date" class="form-control form-control-sm" name="date" required>
             </div>
             <div class="mb-2">
               <label class="form-label d-block">Kind</label>
@@ -106,7 +106,7 @@
 
   <script id="credit-cards-data" type="application/json">{{ credit_cards_json | safe }}</script>
 
-  <div id="transactions-window" data-today="{{ today }}" data-window-url="{{ url_for('transactions.window') }}" data-default-credit-card-id="{{ default_credit_card_id or '' }}" class="mt-2" style="max-height: 70vh; overflow-y: auto;">
+  <div id="transactions-window" data-window-url="{{ url_for('transactions.window') }}" data-default-credit-card-id="{{ default_credit_card_id or '' }}" class="mt-2" style="max-height: 70vh; overflow-y: auto;">
     <table class="table table-sm align-middle mb-0">
       <thead class="sticky-top bg-white">
         <tr>
