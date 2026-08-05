@@ -62,7 +62,8 @@ close date, which *does* hit your checking balance on its due date.
 - **Auth**: simple single-user login (username/password stored, hashed, in
   the database)
 - **Local development**: Docker Compose brings up the Flask app container,
-  with the SQLite file persisted in a named volume
+  with the SQLite file persisted via a bind mount to `./data` on the host
+  (survives `docker compose down -v`, unlike a named volume)
 - **Future deployment** (not built yet): a single small container (e.g. Fly.io
   or a low-cost VPS) with a persistent volume for the SQLite file — chosen
   over a managed MySQL/Postgres instance to keep hosting costs near-zero for
@@ -78,7 +79,7 @@ accntbl/
 ├── app/                  # Flask application (routes, models, templates, static)
 ├── migrations/           # Alembic migration scripts
 ├── docker/               # Dockerfile(s) and related config
-├── docker-compose.yml    # Local dev: web service (SQLite in a named volume)
+├── docker-compose.yml    # Local dev: web service (SQLite bind-mounted from ./data)
 ├── .env.example          # Required environment variables (copy to .env)
 ├── specs.md              # Design source of truth (for Claude/devs)
 ├── implementation_plan.md # Build checklist
@@ -106,7 +107,8 @@ docker compose exec web flask create-user
 
 Run `flask db upgrade` again any time you pull changes that add new
 migrations. To roll back the most recent migration, use
-`docker compose exec web flask db downgrade -1`.
+`docker compose exec web flask db downgrade -- -1` (the `--` is required so
+the leading dash isn't parsed as an option flag).
 
 To try the app with sample data instead of starting from scratch, run
 `docker compose exec web flask seed-demo-data` — it seeds a checking
