@@ -1,11 +1,13 @@
+import json
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 
 from app.auth import login_required
 from app.extensions import db
 from app.models import CheckingAccount, CreditCard
+from app.services.backup import build_snapshot, restore_snapshot
 from app.services.credit_card import compute_starting_balance_due_date
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -189,4 +191,40 @@ def delete_credit_card(card_id):
         db.session.delete(card)
         db.session.commit()
 
+    return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/backup", methods=["GET"])
+@login_required
+def download_backup():
+    snapshot = build_snapshot()
+    filename = f"accntbl-backup-{date.today().isoformat()}.json"
+    return Response(
+        json.dumps(snapshot, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@settings_bp.route("/backup/restore", methods=["POST"])
+@login_required
+def restore_backup():
+    file = request.files.get("backup_file")
+    if file is None or not file.filename:
+        flash("Please choose a backup file to restore.")
+        return redirect(url_for("settings.index"))
+
+    try:
+        data = json.load(file.stream)
+    except ValueError:
+        flash("Backup file is not valid JSON.")
+        return redirect(url_for("settings.index"))
+
+    try:
+        restore_snapshot(data)
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for("settings.index"))
+
+    flash("Backup restored successfully.")
     return redirect(url_for("settings.index"))

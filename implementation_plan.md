@@ -17,7 +17,7 @@ design rationale before implementing any item below.
 ## 1. Data model
 - [x] `users` model + seed script/CLI command to create the single user
 - [x] `checking_accounts` model
-- [x] `credit_card_settings` model (singleton)
+- [ ] `credit_card_settings` model (singleton)
 - [x] `recurring_series` model
 - [x] `transactions` model (with `recurring_series_id`, `occurrence_status`
       enum: `attached` | `detached` | `skipped`)
@@ -138,26 +138,26 @@ design rationale before implementing any item below.
 ## 10. Testing & local run
 - [x] `docker-compose up` brings up app + DB cleanly from scratch
 - [x] Seed script for local dev (sample accounts/transactions)
-- [x] README instructions verified end-to-end on a clean machine/checkout
+- [ ] README instructions verified end-to-end on a clean machine/checkout
 
 
 ## 11. Backup / import-export
 (see specs.md § "Backup / import-export" for full design)
-- [ ] Export endpoint: GET, streams full JSON snapshot (`checking_accounts`,
+- [x] Export endpoint: GET, streams full JSON snapshot (`checking_accounts`,
       `credit_cards`, `credit_due_overrides`, `recurring_series`,
       non-`attached` `transactions`, top-level `schema_version`) as a
       timestamped file download
-- [ ] Import endpoint: POST with file upload, validates `schema_version`
+- [x] Import endpoint: POST with file upload, validates `schema_version`
       against current Alembic head, rejects on mismatch
-- [ ] Import: single-transaction full replace (delete existing rows in
+- [x] Import: single-transaction full replace (delete existing rows in
       FK-safe order, insert backup rows), rollback whole operation on any
       failure
-- [ ] Import: re-run recurring-occurrence generator per imported series to
+- [x] Import: re-run recurring-occurrence generator per imported series to
       regenerate `attached` transaction rows over the standard window
-- [ ] Settings page: "Download backup" button + "Restore from backup" file
+- [x] Settings page: "Download backup" button + "Restore from backup" file
       upload control, gated behind an explicit confirmation modal (destructive,
       replaces all current data)
-- [ ] Unit tests: export produces valid/complete snapshot; import round-trip
+- [x] Unit tests: export produces valid/complete snapshot; import round-trip
       (export → wipe → import → data matches); schema_version mismatch
       rejected; `skipped` occurrences survive round-trip; import failure
       leaves DB unchanged (rollback)

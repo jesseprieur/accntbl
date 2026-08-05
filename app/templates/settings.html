@@ -88,4 +88,34 @@
       <form id="create-card" method="post" action="{{ url_for('settings.create_credit_card') }}"></form>
     </tbody>
   </table>
+
+  <h2 class="h5 mt-4">Backup</h2>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('settings.download_backup') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Download backup</a>
+    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#restore-backup-modal"><i class="bi bi-upload"></i> Restore from backup</button>
+  </div>
+
+  <div class="modal fade" id="restore-backup-modal" tabindex="-1" aria-labelledby="restore-backup-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('settings.restore_backup') }}" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h2 class="modal-title h5" id="restore-backup-modal-label">Restore from backup</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-danger small">This replaces all current data with the contents of the backup file. This cannot be undone.</p>
+            <div class="mb-2">
+              <label class="form-label">Backup file</label>
+              <input type="file" class="form-control form-control-sm" name="backup_file" accept="application/json" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+            <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-exclamation-triangle"></i> Restore &amp; replace all data</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 {% endblock %}
