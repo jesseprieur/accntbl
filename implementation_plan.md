@@ -162,7 +162,3 @@ design rationale before implementing any item below.
       (export → wipe → import → data matches); schema_version mismatch
       rejected; `skipped` occurrences survive round-trip; import failure
       leaves DB unchanged (rollback)
-
-## Later (not in scope yet — do not build until asked)
-- [ ] Deployment to AWS Lambda + S3 or GCP Cloud Run + GCS
-- [ ] Savings/investment account tracking + transfers into checking
