@@ -10,14 +10,15 @@ design rationale before implementing any item below.
   service/container) — switched from a named volume after `docker-compose
   down -v` wiped it; see specs.md § "Backup / import-export"
 - [x] Flask app factory + config (dev/test/prod via env vars)
-- [ ] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
+- [x] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
   SQLite-safe migrations)
 - [x] `.env.example` with Flask secret key and app config
 
 ## 1. Data model
 - [x] `users` model + seed script/CLI command to create the single user
 - [x] `checking_accounts` model
-- [ ] `credit_card_settings` model (singleton)
+- [x] `credit_card_settings` model (singleton) — superseded by the
+      multi-card `credit_cards` table (see § 8)
 - [x] `recurring_series` model
 - [x] `transactions` model (with `recurring_series_id`, `occurrence_status`
       enum: `attached` | `detached` | `skipped`)
