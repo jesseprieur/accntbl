@@ -64,6 +64,9 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# App SQLite data (bind-mounted from docker-compose)
+/data/
+
 # Flask stuff:
 instance/
 .webassets-cache

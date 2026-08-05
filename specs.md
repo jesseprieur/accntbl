@@ -275,13 +275,71 @@ password, Flask session-based auth). No self-registration UI needed for v1
   "Recurring series editing semantics" for what happens to its
   occurrences).
 
+## Backup / import-export
+
+Motivated by an accidental data loss (named Docker volume deleted by
+`docker-compose down -v`); the bind-mount change above (see Tech stack) is
+the primary fix, but a portable, human-recoverable backup format is still
+useful for point-in-time snapshots, moving between machines, and recovering
+from DB corruption.
+
+- Format: single JSON file (chosen over YAML for native
+  `json.dumps`/`json.load` support with no new dependency; also trivially
+  diffable and versionable if the user wants to keep snapshots in git
+  outside this repo).
+- Export is a full snapshot of everything needed to fully reconstruct app
+  state, exposed as a "Download backup" button on the Settings page (GET
+  endpoint, streams `application/json` with a timestamped filename, e.g.
+  `accntbl-backup-2026-08-04.json`). Included tables:
+  - `checking_accounts` (all fields)
+  - `credit_cards` (all fields, including `is_default`)
+  - `credit_due_overrides` (all fields)
+  - `recurring_series` (all fields) — importing these regenerates their
+    `attached` occurrences via the existing recurring-occurrence generator,
+    so individual `attached` transaction rows are deliberately NOT exported;
+    re-deriving them avoids double-storing data that's already fully
+    determined by the series definition.
+  - `transactions` where `recurring_series_id IS NULL` OR
+    `occurrence_status IN ('detached', 'skipped')` — i.e. every row that
+    is NOT a currently-`attached` series occurrence, since those regenerate
+    on import. `skipped` rows are included so the skip decision survives a
+    restore (otherwise the series would silently regenerate that occurrence
+    on import).
+  - top-level `schema_version` field (matches the latest Alembic revision
+    id at export time) so import can detect/reject backups from an
+    incompatible schema rather than silently corrupting data.
+  - `users` is deliberately excluded — credentials aren't "data" to back up
+    and re-importing a password hash across environments is a security
+    smell; a restore always keeps the current environment's user(s).
+- Import is a full restore, not a merge: a "Restore from backup" control on
+  the Settings page (file upload → POST), gated behind a confirmation modal
+  that says explicitly this replaces all current data. Steps:
+  1. Validate `schema_version` matches current Alembic head; reject with a
+     clear error otherwise (no partial-schema migration-on-import — out of
+     scope for v1).
+  2. Wrap in a single DB transaction: delete all rows from
+     `transactions`, `recurring_series`, `credit_due_overrides`,
+     `credit_cards`, `checking_accounts` (in FK-safe order), then insert the
+     backup's rows for each in the reverse order.
+  3. Re-run the recurring-occurrence generator for every imported
+     `recurring_series` over the standard past-history-through-1-year-out
+     window, to regenerate `attached` transaction rows (mirrors what
+     happens today when a series is first created/edited).
+  4. On any failure, roll back the transaction — the app must never be left
+     with a partially-restored (inconsistent) DB.
+- Not in scope for v1: scheduled/automatic backups, partial/selective
+  restore, cross-schema-version migration on import.
+
 ## Tech stack
 
 - Backend: Python, Flask
 - ORM/migrations: SQLAlchemy + Alembic
 - DB: SQLite (single file on a persistent volume)
 - Frontend: Bootstrap + vanilla JS/Ajax (no heavy JS framework — keep simple)
-- Local/dev: Docker Compose (flask app container, SQLite file in a named volume)
+- Local/dev: Docker Compose (flask app container, SQLite file bind-mounted
+  from `./data` on the host — a named volume was tried first but is deleted
+  by `docker-compose down -v`/volume-prune operations; the bind mount survives
+  those and is visible/backup-able as a normal file)
 - Deployment target: single small container (e.g. Fly.io) with a persistent
   volume for the SQLite file — chosen for low-cost, low-traffic single-user
   hosting without a separate managed database service.

@@ -6,7 +6,9 @@ design rationale before implementing any item below.
 ## 0. Project scaffolding
 - [x] Initialize repo structure (`app/`, `migrations/`, `docker/`, etc.)
 - [x] `docker-compose.yml` with a single `web` (Flask) service; SQLite file
-  persisted in a named volume (no separate DB service/container)
+  persisted via a bind mount to `./data` on the host (no separate DB
+  service/container) — switched from a named volume after `docker-compose
+  down -v` wiped it; see specs.md § "Backup / import-export"
 - [x] Flask app factory + config (dev/test/prod via env vars)
 - [ ] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
   SQLite-safe migrations)
@@ -138,6 +140,27 @@ design rationale before implementing any item below.
 - [x] Seed script for local dev (sample accounts/transactions)
 - [x] README instructions verified end-to-end on a clean machine/checkout
 
+
+## 11. Backup / import-export
+(see specs.md § "Backup / import-export" for full design)
+- [ ] Export endpoint: GET, streams full JSON snapshot (`checking_accounts`,
+      `credit_cards`, `credit_due_overrides`, `recurring_series`,
+      non-`attached` `transactions`, top-level `schema_version`) as a
+      timestamped file download
+- [ ] Import endpoint: POST with file upload, validates `schema_version`
+      against current Alembic head, rejects on mismatch
+- [ ] Import: single-transaction full replace (delete existing rows in
+      FK-safe order, insert backup rows), rollback whole operation on any
+      failure
+- [ ] Import: re-run recurring-occurrence generator per imported series to
+      regenerate `attached` transaction rows over the standard window
+- [ ] Settings page: "Download backup" button + "Restore from backup" file
+      upload control, gated behind an explicit confirmation modal (destructive,
+      replaces all current data)
+- [ ] Unit tests: export produces valid/complete snapshot; import round-trip
+      (export → wipe → import → data matches); schema_version mismatch
+      rejected; `skipped` occurrences survive round-trip; import failure
+      leaves DB unchanged (rollback)
 
 ## Later (not in scope yet — do not build until asked)
 - [ ] Deployment to AWS Lambda + S3 or GCP Cloud Run + GCS
