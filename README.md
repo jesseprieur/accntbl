@@ -48,8 +48,9 @@ close date, which *does* hit your checking balance on its due date.
   month's close.
 - **Color-coded rows**: positive amounts are green and negative amounts are
   red; rows still attached to a recurring series get a green left border;
-  a negative running balance is highlighted bright red; month-end rows get
-  a grey top border. Detached/one-off rows aren't specially colored.
+  a row detached from a series gets a yellow left border; a plain one-off
+  row gets a blue left border; a negative running balance is highlighted
+  bright red and bold; month-end rows get a grey top border.
 
 ## Architecture
 
