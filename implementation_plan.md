@@ -43,6 +43,17 @@ design rationale before implementing any item below.
       /generated CC payments)
 - [x] Unit tests for all of the above (cadence edge cases, custom intervals,
       statement period boundaries, negative balance detection)
+- [ ] When creating a recurring series, there should be an 'Advanced' button
+      which open/closes a Bootstrap Accordion/Collapse component, with advanced
+      transaction amount logic. The database will have to be modified to support
+      this (maybe as a string that can be translated into logic within the code?).
+      Advanced logic includes:
+    - [ ] An if/elseif option which operates against the date (i.e. if a transaction
+          date >= month/day or month/day/year then amount = x, elseif transaction
+          date >= another month/day/etc. then amount = y, else amount = z)
+    - [ ] An increase/decrease option which increases or decreases the amount
+          on each subsequent occurrence of a transaction by an absolute amount
+          or percentage.
 
 ## 4. Settings page
 - [x] View/edit checking accounts (add/edit/remove, starting balance,
@@ -75,6 +86,11 @@ design rationale before implementing any item below.
 - [x] Delete/Skip row button for single transactions: state dependent + label
       ("Skip" action for series item, which skips the current iteration;
       "Delete" for single transactions, which deletes the single transaction)
+- [ ] When editing a recurring series, we should either be able to 'save for
+      all occurrences', which just edits the series, or 'save for all future
+      events' after a certain date, which detaches all transactions before or
+      on the date selected. We will want a confirmation around the 'save for
+      all future events' logic though.
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form)
 
@@ -151,10 +167,12 @@ design rationale before implementing any item below.
 - [x] Import endpoint: POST with file upload, validates `schema_version`
       against current Alembic head, rejects on mismatch
 - [ ] Import: Upon choosing a JSON file to import, a validation should run on
-      the file to ensure its in the correct file format, and has the correct JSON
-      top-level strings (ex. `checking_accounts`, etc.). If it is correct, show a
-      green check icon and allow the user to upload; if its not correct, show a
-      red X icon, and do not allow upload 
+      the file to ensure its in the correct file format, is the correct
+      `schema_version` (or has a path to migrate it forward (eg. nulling new
+      fields, not using old fields)) and has the correct JSON top-level strings
+      (ex. `checking_accounts`, etc.). If it is correct, show a green check
+      icon and allow the user to upload; if its not correct, show a red X icon,
+      and do not allow upload 
 - [x] Import: single-transaction full replace (delete existing rows in
       FK-safe order, insert backup rows), rollback whole operation on any
       failure
