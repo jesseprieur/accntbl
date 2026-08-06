@@ -86,7 +86,7 @@ design rationale before implementing any item below.
 - [x] Delete/Skip row button for single transactions: state dependent + label
       ("Skip" action for series item, which skips the current iteration;
       "Delete" for single transactions, which deletes the single transaction)
-- [ ] When editing a recurring series, we should either be able to 'save for
+- [x] When editing a recurring series, we should either be able to 'save for
       all occurrences', which just edits the series, or 'save for all future
       events' after a certain date, which detaches all transactions before or
       on the date selected. We will want a confirmation around the 'save for

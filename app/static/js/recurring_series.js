@@ -168,6 +168,18 @@
     });
   }
 
+  const editSeriesEffectiveDateField = document.getElementById("edit-series-effective-date-field");
+  const toggleEditSeriesEffectiveDateField = () => {
+    if (!editSeriesForm || !editSeriesEffectiveDateField) return;
+    const checked = editSeriesForm.querySelector('input[name="save_mode"]:checked');
+    editSeriesEffectiveDateField.classList.toggle("d-none", !checked || checked.value !== "future");
+  };
+  if (editSeriesForm) {
+    editSeriesForm.querySelectorAll('input[name="save_mode"]').forEach((radio) => {
+      radio.addEventListener("change", toggleEditSeriesEffectiveDateField);
+    });
+  }
+
   function openEditSeriesModal(seriesId) {
     if (!editSeriesForm || !editSeriesModalEl) return;
     fetch(`/transactions/series/${seriesId}`)
@@ -190,8 +202,11 @@
         if (data.credit_card_id != null) {
           editSeriesForm.elements["credit_card_id"].value = data.credit_card_id;
         }
+        editSeriesForm.elements["save_mode"].value = "all";
+        editSeriesForm.elements["effective_date"].value = "";
         toggleEditSeriesCustomFields();
         toggleEditSeriesCardField();
+        toggleEditSeriesEffectiveDateField();
         document.getElementById("edit-series-error").classList.add("d-none");
         const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editSeriesModalEl) : null;
         if (modal) modal.show();
@@ -220,6 +235,25 @@
       };
       if (kind === "credit") {
         body.credit_card_id = formData.get("credit_card_id");
+      }
+
+      const saveMode = formData.get("save_mode");
+      if (saveMode === "future") {
+        const effectiveDate = formData.get("effective_date");
+        if (!effectiveDate) {
+          editSeriesError.textContent = "An effective date is required to save changes for future occurrences only.";
+          editSeriesError.classList.remove("d-none");
+          return;
+        }
+        if (
+          !window.confirm(
+            `Occurrences on or before ${effectiveDate} will be detached and left unchanged. Occurrences after ${effectiveDate} will use the new values. Continue?`
+          )
+        ) {
+          return;
+        }
+        body.save_mode = "future";
+        body.effective_date = effectiveDate;
       }
 
       fetch(`/transactions/series/${seriesId}`, {

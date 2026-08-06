@@ -495,17 +495,43 @@ def update_series(series_id):
             series.credit_card_id = _resolve_credit_card_id(
                 series.kind, payload.get("credit_card_id"), series.credit_card_id
             )
+        effective_date = None
+        if payload.get("save_mode") == "future":
+            if not payload.get("effective_date"):
+                raise ValueError(
+                    "An effective date is required to save changes for future occurrences only."
+                )
+            effective_date = _parse_date_param(
+                payload["effective_date"], "Effective date"
+            )
     except ValueError as exc:
         db.session.rollback()
         return jsonify({"error": str(exc)}), 400
 
-    Transaction.query.filter_by(
+    attached_query = Transaction.query.filter_by(
         recurring_series_id=series.id, occurrence_status=OccurrenceStatus.attached
-    ).delete(synchronize_session=False)
+    )
+
+    if effective_date is not None:
+        attached_query.filter(Transaction.date <= effective_date).update(
+            {"occurrence_status": OccurrenceStatus.detached},
+            synchronize_session=False,
+        )
+        attached_query.filter(Transaction.date > effective_date).delete(
+            synchronize_session=False
+        )
+        regen_start = max(series.start_date, effective_date + timedelta(days=1))
+    else:
+        attached_query.delete(synchronize_session=False)
+        regen_start = series.start_date
 
     horizon = date.today() + timedelta(days=_MATERIALIZE_FUTURE_DAYS)
     range_end = min(series.end_date, horizon) if series.end_date is not None else horizon
-    occurrence_dates = generate_occurrences(series, series.start_date, range_end)
+    occurrence_dates = (
+        generate_occurrences(series, regen_start, range_end)
+        if regen_start <= range_end
+        else []
+    )
 
     for occurrence_date in occurrence_dates:
         db.session.add(

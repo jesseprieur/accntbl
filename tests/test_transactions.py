@@ -1008,6 +1008,78 @@ def test_update_series_regenerates_attached_occurrences(client, app):
             assert occurrence.occurrence_status == OccurrenceStatus.attached
 
 
+def test_update_series_save_mode_future_detaches_past_and_updates_future(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-10-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={
+            "amount": "1600.00",
+            "save_mode": "future",
+            "effective_date": "2026-08-01",
+        },
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["amount"] == "1600.00"
+    assert data["occurrences_created"] == 2
+
+    with app.app_context():
+        occurrences = Transaction.query.filter_by(recurring_series_id=series_id).order_by(
+            Transaction.date
+        ).all()
+        assert [t.date for t in occurrences] == [
+            dt.date(2026, 7, 1),
+            dt.date(2026, 8, 1),
+            dt.date(2026, 9, 1),
+            dt.date(2026, 10, 1),
+        ]
+
+        past_occurrences = occurrences[:2]
+        future_occurrences = occurrences[2:]
+
+        for occurrence in past_occurrences:
+            assert occurrence.occurrence_status == OccurrenceStatus.detached
+            assert occurrence.amount == Decimal("1500.00")
+            assert occurrence.recurring_series_id == series_id
+
+        for occurrence in future_occurrences:
+            assert occurrence.occurrence_status == OccurrenceStatus.attached
+            assert occurrence.amount == Decimal("1600.00")
+
+
+def test_update_series_save_mode_future_requires_effective_date(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Paycheck",
+            "kind": "cash",
+            "amount": "1500.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={"amount": "1600.00", "save_mode": "future"},
+    )
+    assert response.status_code == 400
+    assert "effective date" in response.get_json()["error"].lower()
+
+
 def test_update_series_preserves_detached_and_skipped_occurrences(client, app):
     create_response = client.post(
         "/transactions/series",

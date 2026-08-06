@@ -180,6 +180,23 @@
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
             </div>
+            <hr>
+            <div class="mb-2">
+              <label class="form-label d-block">Apply changes to</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="save_mode" id="edit-series-save-all" value="all" checked>
+                <label class="form-check-label" for="edit-series-save-all">All occurrences</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="save_mode" id="edit-series-save-future" value="future">
+                <label class="form-check-label" for="edit-series-save-future">Future occurrences only, starting after a date</label>
+              </div>
+            </div>
+            <div class="mb-2 d-none" id="edit-series-effective-date-field">
+              <label class="form-label">Effective date</label>
+              <input type="date" class="form-control form-control-sm" name="effective_date">
+              <p class="small text-muted mb-0">Occurrences on or before this date will be detached and left unchanged. Occurrences after this date will reflect the new values.</p>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
