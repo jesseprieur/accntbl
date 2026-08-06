@@ -7,7 +7,7 @@ from flask import Blueprint, Response, flash, redirect, render_template, request
 from app.auth import login_required
 from app.extensions import db
 from app.models import CheckingAccount, CreditCard
-from app.services.backup import build_snapshot, restore_snapshot
+from app.services.backup import build_snapshot, restore_snapshot, validate_snapshot
 from app.services.credit_card import compute_starting_balance_due_date
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -203,6 +203,22 @@ def download_backup():
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@settings_bp.route("/backup/validate", methods=["POST"])
+@login_required
+def validate_backup():
+    file = request.files.get("backup_file")
+    if file is None or not file.filename:
+        return {"valid": False, "errors": ["Please choose a backup file."]}
+
+    try:
+        data = json.load(file.stream)
+    except ValueError:
+        return {"valid": False, "errors": ["Backup file is not valid JSON."]}
+
+    errors = validate_snapshot(data)
+    return {"valid": not errors, "errors": errors}
 
 
 @settings_bp.route("/backup/restore", methods=["POST"])

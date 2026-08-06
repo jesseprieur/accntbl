@@ -107,12 +107,16 @@
             <p class="text-danger small">This replaces all current data with the contents of the backup file. This cannot be undone.</p>
             <div class="mb-2">
               <label class="form-label">Backup file</label>
-              <input type="file" class="form-control form-control-sm" name="backup_file" accept="application/json" required>
+              <div class="d-flex align-items-center gap-2">
+                <input type="file" class="form-control form-control-sm" id="restore-backup-file" name="backup_file" accept="application/json" required>
+                <span id="restore-backup-file-status"></span>
+              </div>
+              <div id="restore-backup-file-errors" class="text-danger small mt-1"></div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
-            <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-exclamation-triangle"></i> Restore &amp; replace all data</button>
+            <button type="submit" id="restore-backup-submit" class="btn btn-danger btn-sm" disabled><i class="bi bi-exclamation-triangle"></i> Restore &amp; replace all data</button>
           </div>
         </form>
       </div>
@@ -123,5 +127,42 @@
 {% block scripts %}
   <script>
     document.getElementById("create-account-as-of-date").value = DateUtils.today();
+
+    (function () {
+      const fileInput = document.getElementById("restore-backup-file");
+      const statusIcon = document.getElementById("restore-backup-file-status");
+      const errorsBox = document.getElementById("restore-backup-file-errors");
+      const submitButton = document.getElementById("restore-backup-submit");
+
+      fileInput.addEventListener("change", function () {
+        statusIcon.innerHTML = "";
+        errorsBox.textContent = "";
+        submitButton.disabled = true;
+
+        const file = fileInput.files[0];
+        if (!file) {
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("backup_file", file);
+
+        fetch("{{ url_for('settings.validate_backup') }}", { method: "POST", body: formData })
+          .then((response) => response.json())
+          .then((result) => {
+            if (result.valid) {
+              statusIcon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+              submitButton.disabled = false;
+            } else {
+              statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+              errorsBox.textContent = result.errors.join(" ");
+            }
+          })
+          .catch(function () {
+            statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+            errorsBox.textContent = "Could not validate the file. Please try again.";
+          });
+      });
+    })();
   </script>
 {% endblock %}

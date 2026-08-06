@@ -166,7 +166,7 @@ design rationale before implementing any item below.
       timestamped file download
 - [x] Import endpoint: POST with file upload, validates `schema_version`
       against current Alembic head, rejects on mismatch
-- [ ] Import: Upon choosing a JSON file to import, a validation should run on
+- [x] Import: Upon choosing a JSON file to import, a validation should run on
       the file to ensure its in the correct file format, is the correct
       `schema_version` (or has a path to migrate it forward (eg. nulling new
       fields, not using old fields)) and has the correct JSON top-level strings

@@ -17,7 +17,12 @@ from app.models import (
     Transaction,
     User,
 )
-from app.services.backup import build_snapshot, get_alembic_head, restore_snapshot
+from app.services.backup import (
+    build_snapshot,
+    get_alembic_head,
+    restore_snapshot,
+    validate_snapshot,
+)
 from app.services.recurring import generate_occurrences
 
 
@@ -231,6 +236,75 @@ def test_import_failure_rolls_back_leaving_db_unchanged(app):
 
         assert CheckingAccount.query.count() == 1
         assert CheckingAccount.query.one().name == "Primary Checking"
+
+
+def test_validate_snapshot_accepts_a_valid_export(app):
+    with app.app_context():
+        _seed_sample_data()
+        snapshot = build_snapshot()
+
+        assert validate_snapshot(snapshot) == []
+
+
+def test_validate_snapshot_rejects_non_dict_payload(app):
+    with app.app_context():
+        assert validate_snapshot(["not", "a", "dict"]) == [
+            "Backup file must contain a JSON object."
+        ]
+
+
+def test_validate_snapshot_rejects_schema_version_mismatch(app):
+    with app.app_context():
+        _seed_sample_data()
+        snapshot = build_snapshot()
+        snapshot["schema_version"] = "not-a-real-revision"
+
+        errors = validate_snapshot(snapshot)
+        assert len(errors) == 1
+        assert "not-a-real-revision" in errors[0]
+
+
+def test_validate_snapshot_reports_missing_and_malformed_sections(app):
+    with app.app_context():
+        _seed_sample_data()
+        snapshot = build_snapshot()
+        del snapshot["credit_cards"]
+        snapshot["transactions"] = "not-a-list"
+
+        errors = validate_snapshot(snapshot)
+        assert "Backup file is missing 'credit_cards'." in errors
+        assert "'transactions' must be a list." in errors
+
+
+def test_validate_backup_endpoint_accepts_a_valid_export(client, app):
+    with app.app_context():
+        _seed_sample_data()
+
+    download_response = client.get("/settings/backup")
+
+    from io import BytesIO
+
+    response = client.post(
+        "/settings/backup/validate",
+        data={"backup_file": (BytesIO(download_response.data), "backup.json")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    assert response.get_json() == {"valid": True, "errors": []}
+
+
+def test_validate_backup_endpoint_rejects_invalid_json(client, app):
+    from io import BytesIO
+
+    response = client.post(
+        "/settings/backup/validate",
+        data={"backup_file": (BytesIO(b"not json"), "backup.json")},
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["valid"] is False
+    assert body["errors"] == ["Backup file is not valid JSON."]
 
 
 def test_restore_backup_endpoint_round_trip(client, app):

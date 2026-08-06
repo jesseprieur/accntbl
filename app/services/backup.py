@@ -28,6 +28,14 @@ from app.services.recurring import generate_occurrences
 
 _MATERIALIZE_FUTURE_DAYS = 365
 
+_REQUIRED_LIST_KEYS = (
+    "checking_accounts",
+    "credit_cards",
+    "credit_due_overrides",
+    "recurring_series",
+    "transactions",
+)
+
 
 def get_alembic_head():
     """Return the current Alembic head revision id for this app's migrations."""
@@ -101,20 +109,48 @@ def build_snapshot():
     }
 
 
+def validate_snapshot(data):
+    """Return a list of validation error strings for a backup snapshot dict.
+
+    An empty list means the snapshot is structurally valid and its
+    schema_version matches the current Alembic head, so it's safe to pass to
+    restore_snapshot. Split out from restore_snapshot so the UI can check a
+    file before the user commits to the destructive replace.
+    """
+    if not isinstance(data, dict):
+        return ["Backup file must contain a JSON object."]
+
+    errors = []
+
+    if "schema_version" not in data:
+        errors.append("Backup file is missing 'schema_version'.")
+    else:
+        current_head = get_alembic_head()
+        if data["schema_version"] != current_head:
+            errors.append(
+                f"Backup schema_version ({data['schema_version']!r}) does not "
+                f"match the current schema ({current_head!r})."
+            )
+
+    for key in _REQUIRED_LIST_KEYS:
+        if key not in data:
+            errors.append(f"Backup file is missing '{key}'.")
+        elif not isinstance(data[key], list):
+            errors.append(f"'{key}' must be a list.")
+
+    return errors
+
+
 def restore_snapshot(data):
     """Replace all current data with the given backup snapshot.
 
-    Raises ValueError if the backup's schema_version doesn't match the
-    current Alembic head. Rolls back entirely on any failure so the DB is
-    never left partially restored.
+    Raises ValueError if the backup fails validate_snapshot (e.g. schema
+    mismatch or missing sections). Rolls back entirely on any failure so the
+    DB is never left partially restored.
     """
-    current_head = get_alembic_head()
-    backup_version = data.get("schema_version")
-    if backup_version != current_head:
-        raise ValueError(
-            f"Backup schema_version ({backup_version!r}) does not match "
-            f"the current schema ({current_head!r})."
-        )
+    errors = validate_snapshot(data)
+    if errors:
+        raise ValueError(" ".join(errors))
 
     try:
         Transaction.query.delete(synchronize_session=False)
