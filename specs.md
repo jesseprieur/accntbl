@@ -75,6 +75,8 @@ Template for generating repeated transactions.
 - start_date
 - end_date (nullable — no end means repeats through the 1-year window)
 - notes (optional)
+- amount_logic (nullable JSON — optional conditional/escalating override of
+  plain `amount` per occurrence; see "Advanced amount logic" below)
 
 ### `transactions`
 Concrete line items shown in the table. Both one-off and materialized
@@ -104,6 +106,29 @@ recurring occurrences live here.
     normally. Un-skipping sets this back to `attached` (see below) — there
     is currently no "un-detach" action.
 
+## Advanced amount logic
+
+`recurring_series.amount_logic` lets a series' per-occurrence amount deviate
+from its plain `amount`, evaluated at each occurrence date by
+`resolve_amount()`. Editable via an 'Advanced' accordion on the add/edit
+recurring series forms; when unset, the series behaves exactly as if the
+column didn't exist (plain `amount` every occurrence). Two modes (not
+combined):
+
+- **Conditional**: an ordered list of date-threshold rules (`if transaction
+  date >= month/day[/year] then amount = x`, `elseif ... then amount = y`,
+  `else amount = z`). Rules are checked top-to-bottom, first match wins; if
+  none match, falls back to `else_amount` or the plain `amount`.
+- **Escalating**: increases or decreases the amount on each subsequent
+  occurrence, by either an absolute amount (linear) or a percentage
+  (compounding), applied to `abs(amount)` and floored at zero, then
+  reapplying the original sign (so an outflow stays an outflow as it shrinks
+  toward zero, never flips to an inflow).
+
+Applies at every occurrence-materialization site (series create/update,
+backup import regeneration) — an occurrence's stored `amount` is always the
+resolved value for its date, not a formula.
+
 ## Credit card payment logic
 
 A credit card payment-due row is NOT a line item you create manually each
@@ -114,7 +139,14 @@ cycle. Instead, this runs independently **per card**:
 2. `amount` is negative for money spent on the card, positive for
    refunds. For each closed statement period, sum `amount` on all kind=credit
    transactions dated within that period **and belonging to that card**
-   (`credit_card_id`).
+   (`credit_card_id`). "Closed" here describes the period's own start/close
+   boundary (the window being summed), not a real-time cutoff against
+   today: the table view is a 1-year *forward* forecast (see "Frontend"),
+   so future statement periods must still produce projected due rows from
+   already-scheduled recurring credit transactions — otherwise forecasting
+   beyond one statement cycle would show no credit-card outflows at all.
+   The only calculation that uses a real "as of now" cutoff is
+   `starting_balance_due_date` (point 6 below).
 3. That sum is the *computed estimate* for that card/period's payment-due
    row, dated `statement_close_day + payment_due_offset_days` (using that
    card's own offset), added directly (not subtracted) to the running total
@@ -184,7 +216,16 @@ Polish-phase item in implementation_plan.md, not fixed here.
 
 Editing the series template itself (name, amount, cadence, etc.) happens on
 the dedicated **Recurring Series page** (see Frontend), not from the main
-table. Saving there regenerates/updates all `attached` occurrences.
+table. Saving there offers two modes:
+- **Save for all occurrences**: edits the series template directly;
+  regenerates/updates all `attached` occurrences as usual.
+- **Save for future events (after a date)**: detaches all `attached`
+  occurrences on or before the selected date (leaving their current values
+  untouched as independent one-offs, per the `detached` semantics above),
+  then applies the edit to the series template so only occurrences after
+  that date reflect the new values. Because this permanently splits the
+  series' history, it requires an explicit confirmation step before
+  submitting.
 
 Editing a table row is always an inline edit (Ajax PATCH) with explicit
 save/cancel controls — there is no separate "open series form" flow
@@ -313,7 +354,15 @@ from DB corruption.
     smell; a restore always keeps the current environment's user(s).
 - Import is a full restore, not a merge: a "Restore from backup" control on
   the Settings page (file upload → POST), gated behind a confirmation modal
-  that says explicitly this replaces all current data. Steps:
+  that says explicitly this replaces all current data.
+  Before the upload is even submitted, choosing a file triggers a
+  client-side pre-check (correct JSON, correct `schema_version`, all
+  expected top-level keys present) that shows a green check icon and
+  enables the upload button on success, or a red X and a disabled upload
+  button on failure — a fast UX guard in front of the same validation the
+  server re-runs authoritatively in step 1 below (the client check is not
+  a substitute for server-side validation).
+  Server-side steps once uploaded:
   1. Validate `schema_version` matches current Alembic head; reject with a
      clear error otherwise (no partial-schema migration-on-import — out of
      scope for v1).
@@ -333,7 +382,12 @@ from DB corruption.
 ## Tech stack
 
 - Backend: Python, Flask
-- ORM/migrations: SQLAlchemy + Alembic
+- ORM/migrations: SQLAlchemy + Alembic, `render_as_batch` enabled for
+  SQLite-safe migrations. `Flask-Migrate`'s `Migrate()` already defaults
+  `render_as_batch=True`/`compare_type=True` into `configure_args`, which
+  `migrations/env.py`'s `run_migrations_online()` forwards automatically —
+  do not re-pass `render_as_batch=True` explicitly when calling `Migrate()`,
+  it raises `TypeError: multiple values for keyword argument`.
 - DB: SQLite (single file on a persistent volume)
 - Frontend: Bootstrap + vanilla JS/Ajax (no heavy JS framework — keep simple)
 - Local/dev: Docker Compose (flask app container, SQLite file bind-mounted

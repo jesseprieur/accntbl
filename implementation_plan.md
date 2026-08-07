@@ -6,26 +6,18 @@ design rationale before implementing any item below.
 ## 0. Project scaffolding
 - [x] Initialize repo structure (`app/`, `migrations/`, `docker/`, etc.)
 - [x] `docker-compose.yml` with a single `web` (Flask) service; SQLite file
-  persisted via a bind mount to `./data` on the host (no separate DB
-  service/container) — switched from a named volume after `docker-compose
-  down -v` wiped it; see specs.md § "Backup / import-export"
+      persisted via a bind mount to `./data` on the host (no separate DB
+      service/container) — see specs.md § "Tech stack"
 - [x] Flask app factory + config (dev/test/prod via env vars)
-- [x] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
-  SQLite-safe migrations) — verified: `Flask-Migrate==4.0.7`'s `Migrate()`
-  defaults `render_as_batch=True`/`compare_type=True` into
-  `configure_args`, which `run_migrations_online()` (migrations/env.py)
-  already forwards via `**conf_args`; confirmed with
-  `app.extensions['migrate'].configure_args` and a live `flask db upgrade`
-  against a fresh sqlite file. Explicitly re-passing `render_as_batch=True`
-  there raises `TypeError: multiple values for keyword argument` — don't
-  do that.
+- [x] SQLAlchemy setup + Alembic init — see specs.md § "Tech stack" for the
+      `render_as_batch` configuration gotcha
 - [x] `.env.example` with Flask secret key and app config
 
 ## 1. Data model
 - [x] `users` model + seed script/CLI command to create the single user
 - [x] `checking_accounts` model
 - [x] `credit_card_settings` model (singleton) — superseded by the
-      multi-card `credit_cards` table (see § 8)
+      multi-card `credit_cards` table, see § 8
 - [x] `recurring_series` model
 - [x] `transactions` model (with `recurring_series_id`, `occurrence_status`
       enum: `attached` | `detached` | `skipped`)
@@ -44,53 +36,18 @@ design rationale before implementing any item below.
       a date range → list of period boundaries)
 - [x] Credit card payment-due amount calculator (sum `amount` on kind=credit
       transactions per closed period → generates virtual cash transaction on
-      due date) — reviewed the earlier note claiming `payment_due_transactions()`
-      wrongly generates rows for periods that haven't "actually closed" yet.
-      Determined that's not a bug: specs.md's "closed statement period"
-      describes the period's own start/close boundary (the window summed
-      over), not a real-time cutoff against today — the table view is a
-      1-year *forward* forecast (see specs.md's table view / main table
-      section), so future statement periods must still produce projected
-      due rows from already-scheduled recurring credit transactions, or
-      forecasting beyond one statement cycle would show no credit-card
-      outflows at all. Only `compute_starting_balance_due_date()` (point 6)
-      uses a real "as of now" cutoff, and it already does. No test asserts
-      a today-based cutoff on `payment_due_transactions()` itself; all 202
-      existing tests pass unchanged. Left behavior as-is.
+      due date) — see specs.md § "Credit card payment logic"
 - [x] Running total calculator (baseline from `checking_accounts` +
       ascending walk through transactions with `occurrence_status != skipped`
       /generated CC payments)
 - [x] Unit tests for all of the above (cadence edge cases, custom intervals,
       statement period boundaries, negative balance detection)
-- [x] When creating a recurring series, there should be an 'Advanced' button
-      which open/closes a Bootstrap Accordion/Collapse component, with advanced
-      transaction amount logic. The database will have to be modified to support
-      this (maybe as a string that can be translated into logic within the code?).
-      Advanced logic includes:
-    - [x] An if/elseif option which operates against the date (i.e. if a transaction
-          date >= month/day or month/day/year then amount = x, elseif transaction
-          date >= another month/day/etc. then amount = y, else amount = z)
-    - [x] An increase/decrease option which increases or decreases the amount
-          on each subsequent occurrence of a transaction by an absolute amount
-          or percentage.
-      Implementation: `recurring_series.amount_logic` (nullable JSON column,
-      migration `3167e16d7097`); `app/services/amount_logic.resolve_amount()`
-      evaluates it per occurrence date (conditional rules checked top-to-bottom,
-      first match wins, else `else_amount`/plain `amount`; escalating adjusts
-      `abs(amount)` by occurrence index — linear for flat amount, compounding
-      for percentage — floored at zero, then reapplies the original sign).
-      Wired into every occurrence-materialization site: `create_series`,
-      `update_series` (app/transactions.py) and backup import regen
-      (app/services/backup.py); export/import already carries it for free
-      since backup.py serializes generically over model columns. Validated
-      server-side by `_parse_amount_logic()`. UI: shared Jinja macro
-      `app/templates/_amount_logic_accordion.html` rendered into both the
-      add and edit recurring-series modals, wired up in
-      `app/static/js/recurring_series.js` (`initAmountLogicPanel`) for
-      show/hide, dynamic rule rows, and populate/serialize on open/submit.
-      Not covered by an automated UI test (no JS test runner in this repo);
-      verified by rendering `/recurring-series` through the Flask test
-      client and confirming both accordions are present in the markup.
+- [x] When creating/editing a recurring series, an 'Advanced' button opens a
+      Bootstrap Accordion/Collapse component with advanced amount logic
+      (see specs.md § "Advanced amount logic")
+    - [x] Conditional if/elseif date-based amount rules
+    - [x] Escalating increase/decrease (absolute amount or percentage) per
+          occurrence
 
 ## 4. Settings page
 - [x] View/edit checking accounts (add/edit/remove, starting balance,
@@ -123,11 +80,10 @@ design rationale before implementing any item below.
 - [x] Delete/Skip row button for single transactions: state dependent + label
       ("Skip" action for series item, which skips the current iteration;
       "Delete" for single transactions, which deletes the single transaction)
-- [x] When editing a recurring series, we should either be able to 'save for
-      all occurrences', which just edits the series, or 'save for all future
-      events' after a certain date, which detaches all transactions before or
-      on the date selected. We will want a confirmation around the 'save for
-      all future events' logic though.
+- [x] "Save for all occurrences" vs "save for future events after a date"
+      split-save mode on the Recurring Series page, with confirmation on the
+      future-events option (see specs.md § "Recurring series editing
+      semantics")
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form)
 
@@ -203,13 +159,8 @@ design rationale before implementing any item below.
       timestamped file download
 - [x] Import endpoint: POST with file upload, validates `schema_version`
       against current Alembic head, rejects on mismatch
-- [x] Import: Upon choosing a JSON file to import, a validation should run on
-      the file to ensure its in the correct file format, is the correct
-      `schema_version` (or has a path to migrate it forward (eg. nulling new
-      fields, not using old fields)) and has the correct JSON top-level strings
-      (ex. `checking_accounts`, etc.). If it is correct, show a green check
-      icon and allow the user to upload; if its not correct, show a red X icon,
-      and do not allow upload 
+- [x] Import: client-side pre-upload validation with a pass/fail indicator
+      (see specs.md § "Backup / import-export")
 - [x] Import: single-transaction full replace (delete existing rows in
       FK-safe order, insert backup rows), rollback whole operation on any
       failure
