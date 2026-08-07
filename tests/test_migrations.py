@@ -47,12 +47,31 @@ def test_db_downgrade_dash_one_without_separator_is_misparsed_as_an_option(app, 
     assert "No such option" in result.output
 
 
-def test_db_downgrade_dash_one_with_separator_reverts_all_tables(app, runner):
+def test_db_downgrade_dash_one_with_separator_reverts_one_migration(app, runner):
     # This is the syntax README.md actually documents:
     # `flask db downgrade -- -1`
     runner.invoke(args=["db", "upgrade"])
 
     result = runner.invoke(args=["db", "downgrade", "--", "-1"])
+    assert result.exit_code == 0
+
+    with app.app_context():
+        inspector = inspect(db.engine)
+        actual_tables = set(inspector.get_table_names())
+        recurring_series_columns = {
+            c["name"] for c in inspector.get_columns("recurring_series")
+        }
+
+    # One step back from head only reverts the latest migration
+    # (add amount_logic), not every migration back to base.
+    assert "recurring_series" in actual_tables
+    assert "amount_logic" not in recurring_series_columns
+
+
+def test_db_downgrade_to_base_reverts_all_tables(app, runner):
+    runner.invoke(args=["db", "upgrade"])
+
+    result = runner.invoke(args=["db", "downgrade", "base"])
     assert result.exit_code == 0
 
     with app.app_context():

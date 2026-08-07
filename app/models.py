@@ -130,6 +130,7 @@ class RecurringSeries(db.Model):
     credit_card_id = db.Column(
         db.Integer, db.ForeignKey("credit_cards.id"), nullable=True
     )
+    amount_logic = db.Column(db.JSON, nullable=True)
 
     transactions = db.relationship("Transaction", back_populates="recurring_series")
     credit_card = db.relationship("CreditCard")

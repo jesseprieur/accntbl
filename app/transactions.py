@@ -24,6 +24,7 @@ from app.models import (
     RecurringSeries,
     Transaction,
 )
+from app.services.amount_logic import resolve_amount
 from app.services.recurring import generate_occurrences
 from app.services.running_total import compute_running_total
 
@@ -56,6 +57,68 @@ def _parse_enum_field(enum_cls, value, field_label):
     except ValueError:
         allowed = ", ".join(member.value for member in enum_cls)
         raise ValueError(f"{field_label} must be one of: {allowed}.")
+
+
+def _parse_amount_logic(value):
+    """Validate and normalize a `RecurringSeries.amount_logic` payload.
+
+    Returns `None` (plain `amount` applies) or a cleaned dict matching one
+    of the shapes documented in `app.services.amount_logic`.
+    """
+    if not value:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Advanced amount logic must be an object.")
+
+    logic_type = value.get("type")
+
+    if logic_type == "conditional":
+        rules = value.get("rules") or []
+        if not isinstance(rules, list) or not rules:
+            raise ValueError("Conditional amount logic requires at least one rule.")
+        cleaned_rules = []
+        for rule in rules:
+            try:
+                month = int(rule["until_month"])
+                day = int(rule["until_day"])
+                date(2000, month, day)  # validates month/day combination
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("Each conditional rule needs a valid until month/day.")
+            year = rule.get("until_year")
+            year = int(year) if year not in (None, "") else None
+            amount = _parse_decimal_field(rule.get("amount"), "Conditional rule amount")
+            if amount is None:
+                raise ValueError("Each conditional rule needs an amount.")
+            cleaned_rules.append(
+                {"until_month": month, "until_day": day, "until_year": year, "amount": str(amount)}
+            )
+        else_amount = _parse_decimal_field(value.get("else_amount"), "Else amount")
+        return {
+            "type": "conditional",
+            "rules": cleaned_rules,
+            "else_amount": str(else_amount) if else_amount is not None else None,
+        }
+
+    if logic_type == "escalating":
+        direction = value.get("direction")
+        if direction not in ("increase", "decrease"):
+            raise ValueError("Escalating amount logic direction must be 'increase' or 'decrease'.")
+        adjustment_type = value.get("adjustment_type")
+        if adjustment_type not in ("amount", "percentage"):
+            raise ValueError(
+                "Escalating amount logic adjustment type must be 'amount' or 'percentage'."
+            )
+        magnitude = _parse_decimal_field(value.get("value"), "Escalation value")
+        if magnitude is None or magnitude < 0:
+            raise ValueError("Escalation value must be a non-negative number.")
+        return {
+            "type": "escalating",
+            "direction": direction,
+            "adjustment_type": adjustment_type,
+            "value": str(magnitude),
+        }
+
+    raise ValueError("Advanced amount logic type must be 'conditional' or 'escalating'.")
 
 
 def _resolve_credit_card_id(kind, requested_id, existing_id):
@@ -310,6 +373,8 @@ def create_series():
         credit_card_id = _resolve_credit_card_id(
             kind, payload.get("credit_card_id"), None
         )
+
+        amount_logic = _parse_amount_logic(payload.get("amount_logic"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -324,6 +389,7 @@ def create_series():
         end_date=end_date,
         notes=notes,
         credit_card_id=credit_card_id,
+        amount_logic=amount_logic,
     )
     db.session.add(series)
     db.session.flush()
@@ -337,7 +403,7 @@ def create_series():
             Transaction(
                 name=series.name,
                 kind=kind,
-                amount=amount,
+                amount=resolve_amount(series, occurrence_date),
                 date=occurrence_date,
                 notes=notes,
                 recurring_series_id=series.id,
@@ -365,6 +431,7 @@ def create_series():
             "end_date": series.end_date.isoformat() if series.end_date else None,
             "notes": series.notes,
             "credit_card_id": series.credit_card_id,
+            "amount_logic": series.amount_logic,
             "occurrences_created": len(occurrence_dates),
         }
     ), 201
@@ -391,6 +458,7 @@ def list_series():
                     "end_date": s.end_date.isoformat() if s.end_date else None,
                     "notes": s.notes,
                     "credit_card_id": s.credit_card_id,
+                    "amount_logic": s.amount_logic,
                 }
                 for s in series
             ]
@@ -420,6 +488,7 @@ def get_series(series_id):
             "end_date": series.end_date.isoformat() if series.end_date else None,
             "notes": series.notes,
             "credit_card_id": series.credit_card_id,
+            "amount_logic": series.amount_logic,
         }
     )
 
@@ -495,6 +564,10 @@ def update_series(series_id):
             series.credit_card_id = _resolve_credit_card_id(
                 series.kind, payload.get("credit_card_id"), series.credit_card_id
             )
+
+        if "amount_logic" in payload:
+            series.amount_logic = _parse_amount_logic(payload["amount_logic"])
+
         effective_date = None
         if payload.get("save_mode") == "future":
             if not payload.get("effective_date"):
@@ -538,7 +611,7 @@ def update_series(series_id):
             Transaction(
                 name=series.name,
                 kind=series.kind,
-                amount=series.amount,
+                amount=resolve_amount(series, occurrence_date),
                 date=occurrence_date,
                 notes=series.notes,
                 recurring_series_id=series.id,
@@ -566,6 +639,7 @@ def update_series(series_id):
             "end_date": series.end_date.isoformat() if series.end_date else None,
             "notes": series.notes,
             "credit_card_id": series.credit_card_id,
+            "amount_logic": series.amount_logic,
             "occurrences_created": len(occurrence_dates),
         }
     )

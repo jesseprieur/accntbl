@@ -46,6 +46,125 @@
     return tr;
   }
 
+  function initAmountLogicPanel(root) {
+    if (!root) return null;
+
+    const typeRadios = root.querySelectorAll("[data-amount-logic-type]");
+    const panels = root.querySelectorAll("[data-amount-logic-panel]");
+    const rulesContainer = root.querySelector("[data-amount-logic-rules]");
+    const ruleTemplate = root.querySelector("[data-amount-logic-rule-template]");
+    const addRuleButton = root.querySelector('[data-amount-logic-action="add-rule"]');
+    const elseAmountInput = root.querySelector('[data-amount-logic-field="else_amount"]');
+    const escalationDirectionRadios = root.querySelectorAll('[data-amount-logic-field="direction"]');
+    const escalationValueInput = root.querySelector('[data-amount-logic-field="value"]');
+    const escalationAdjustmentSelect = root.querySelector('[data-amount-logic-field="adjustment_type"]');
+
+    function selectedType() {
+      const checked = root.querySelector("[data-amount-logic-type]:checked");
+      return checked ? checked.value : "none";
+    }
+
+    function showPanelFor(type) {
+      panels.forEach((panel) => {
+        panel.classList.toggle("d-none", panel.dataset.amountLogicPanel !== type);
+      });
+    }
+
+    typeRadios.forEach((radio) => radio.addEventListener("change", () => showPanelFor(selectedType())));
+
+    function addRuleRow(rule) {
+      if (!ruleTemplate || !rulesContainer) return;
+      const fragment = ruleTemplate.content.cloneNode(true);
+      const row = fragment.querySelector("[data-amount-logic-rule-row]");
+      if (rule) {
+        row.querySelector('[data-amount-logic-field="until_month"]').value = rule.until_month ?? "";
+        row.querySelector('[data-amount-logic-field="until_day"]').value = rule.until_day ?? "";
+        row.querySelector('[data-amount-logic-field="until_year"]').value = rule.until_year ?? "";
+        row.querySelector('[data-amount-logic-field="amount"]').value = rule.amount ?? "";
+      }
+      rulesContainer.appendChild(row);
+    }
+
+    if (addRuleButton) {
+      addRuleButton.addEventListener("click", () => addRuleRow());
+    }
+
+    if (rulesContainer) {
+      rulesContainer.addEventListener("click", (event) => {
+        const removeButton = event.target.closest('[data-amount-logic-action="remove-rule"]');
+        if (removeButton) {
+          const row = removeButton.closest("[data-amount-logic-rule-row]");
+          if (row) row.remove();
+        }
+      });
+    }
+
+    function reset() {
+      root.querySelector('[data-amount-logic-type][value="none"]').checked = true;
+      showPanelFor("none");
+      if (rulesContainer) rulesContainer.innerHTML = "";
+      if (elseAmountInput) elseAmountInput.value = "";
+      escalationDirectionRadios.forEach((radio) => {
+        radio.checked = radio.value === "increase";
+      });
+      if (escalationValueInput) escalationValueInput.value = "";
+      if (escalationAdjustmentSelect) escalationAdjustmentSelect.value = "amount";
+    }
+
+    function populate(amountLogic) {
+      reset();
+      if (!amountLogic) return;
+      if (amountLogic.type === "conditional") {
+        root.querySelector('[data-amount-logic-type][value="conditional"]').checked = true;
+        showPanelFor("conditional");
+        (amountLogic.rules || []).forEach((rule) => addRuleRow(rule));
+        if (elseAmountInput) elseAmountInput.value = amountLogic.else_amount ?? "";
+      } else if (amountLogic.type === "escalating") {
+        root.querySelector('[data-amount-logic-type][value="escalating"]').checked = true;
+        showPanelFor("escalating");
+        escalationDirectionRadios.forEach((radio) => {
+          radio.checked = radio.value === amountLogic.direction;
+        });
+        if (escalationValueInput) escalationValueInput.value = amountLogic.value ?? "";
+        if (escalationAdjustmentSelect) escalationAdjustmentSelect.value = amountLogic.adjustment_type || "amount";
+      }
+    }
+
+    function serialize() {
+      const type = selectedType();
+      if (type === "conditional") {
+        const rules = Array.from(rulesContainer.querySelectorAll("[data-amount-logic-rule-row]")).map((row) => ({
+          until_month: row.querySelector('[data-amount-logic-field="until_month"]').value,
+          until_day: row.querySelector('[data-amount-logic-field="until_day"]').value,
+          until_year: row.querySelector('[data-amount-logic-field="until_year"]').value || null,
+          amount: row.querySelector('[data-amount-logic-field="amount"]').value,
+        }));
+        return {
+          type: "conditional",
+          rules,
+          else_amount: elseAmountInput ? elseAmountInput.value || null : null,
+        };
+      }
+      if (type === "escalating") {
+        const directionRadio = root.querySelector('[data-amount-logic-field="direction"]:checked');
+        return {
+          type: "escalating",
+          direction: directionRadio ? directionRadio.value : "increase",
+          adjustment_type: escalationAdjustmentSelect ? escalationAdjustmentSelect.value : "amount",
+          value: escalationValueInput ? escalationValueInput.value : "",
+        };
+      }
+      return null;
+    }
+
+    showPanelFor(selectedType());
+
+    return { serialize, populate, reset };
+  }
+
+  const addAmountLogic = initAmountLogicPanel(document.querySelector('[data-amount-logic-root][data-prefix="add-series"]'));
+  const editAmountLogic = initAmountLogicPanel(document.querySelector('[data-amount-logic-root][data-prefix="edit-series"]'));
+
   function loadSeries() {
     fetch("/transactions/series")
       .then((response) => response.json())
@@ -99,6 +218,7 @@
     if (addSeriesModalEl) {
       addSeriesModalEl.addEventListener("show.bs.modal", () => {
         addSeriesForm.elements["start_date"].value = DateUtils.today();
+        if (addAmountLogic) addAmountLogic.reset();
       });
     }
 
@@ -116,6 +236,7 @@
         start_date: formData.get("start_date"),
         end_date: formData.get("end_date") || null,
         notes: formData.get("notes") || null,
+        amount_logic: addAmountLogic ? addAmountLogic.serialize() : null,
       };
       if (kind === "credit") {
         body.credit_card_id = formData.get("credit_card_id");
@@ -204,6 +325,7 @@
         }
         editSeriesForm.elements["save_mode"].value = "all";
         editSeriesForm.elements["effective_date"].value = "";
+        if (editAmountLogic) editAmountLogic.populate(data.amount_logic);
         toggleEditSeriesCustomFields();
         toggleEditSeriesCardField();
         toggleEditSeriesEffectiveDateField();
@@ -232,6 +354,7 @@
         start_date: formData.get("start_date"),
         end_date: formData.get("end_date") || null,
         notes: formData.get("notes") || null,
+        amount_logic: editAmountLogic ? editAmountLogic.serialize() : null,
       };
       if (kind === "credit") {
         body.credit_card_id = formData.get("credit_card_id");

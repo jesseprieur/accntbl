@@ -24,6 +24,7 @@ from app.models import (
     RecurringSeries,
     Transaction,
 )
+from app.services.amount_logic import resolve_amount
 from app.services.recurring import generate_occurrences
 
 _MATERIALIZE_FUTURE_DAYS = 365
@@ -188,7 +189,7 @@ def restore_snapshot(data):
                     Transaction(
                         name=series.name,
                         kind=series.kind,
-                        amount=series.amount,
+                        amount=resolve_amount(series, occurrence_date),
                         date=occurrence_date,
                         notes=series.notes,
                         recurring_series_id=series.id,

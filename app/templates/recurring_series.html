@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_amount_logic_accordion.html" as amount_logic %}
 
 {% block title %}Recurring Series — accntbl{% endblock %}
 
@@ -98,6 +99,7 @@
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
             </div>
+            {{ amount_logic.accordion("add-series") }}
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
@@ -180,6 +182,7 @@
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
             </div>
+            {{ amount_logic.accordion("edit-series") }}
             <hr>
             <div class="mb-2">
               <label class="form-label d-block">Apply changes to</label>

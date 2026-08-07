@@ -898,6 +898,115 @@ def test_create_series_rejects_end_date_before_start_date(client):
     assert response.status_code == 400
 
 
+def test_create_series_with_conditional_amount_logic_materializes_per_rule_amounts(client, app):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Rent",
+            "kind": "cash",
+            "amount": "-1000.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-01-01",
+            "end_date": "2026-03-01",
+            "amount_logic": {
+                "type": "conditional",
+                "rules": [{"until_month": 2, "until_day": 1, "amount": "-1200.00"}],
+                "else_amount": "-1000.00",
+            },
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["amount_logic"]["type"] == "conditional"
+
+    with app.app_context():
+        occurrences = (
+            Transaction.query.filter_by(recurring_series_id=data["id"])
+            .order_by(Transaction.date)
+            .all()
+        )
+        assert [(t.date, t.amount) for t in occurrences] == [
+            (dt.date(2026, 1, 1), Decimal("-1000.00")),
+            (dt.date(2026, 2, 1), Decimal("-1200.00")),
+            (dt.date(2026, 3, 1), Decimal("-1200.00")),
+        ]
+
+
+def test_create_series_rejects_conditional_amount_logic_without_rules(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Rent",
+            "kind": "cash",
+            "amount": "-1000.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-01-01",
+            "amount_logic": {"type": "conditional", "rules": []},
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_create_series_rejects_escalating_amount_logic_with_bad_direction(client):
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Rent",
+            "kind": "cash",
+            "amount": "-1000.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-01-01",
+            "amount_logic": {
+                "type": "escalating",
+                "direction": "sideways",
+                "adjustment_type": "amount",
+                "value": "10.00",
+            },
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_update_series_with_escalating_amount_logic_regenerates_with_new_amounts(client, app):
+    create_response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Allowance",
+            "kind": "cash",
+            "amount": "100.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-01-01",
+            "end_date": "2026-03-01",
+        },
+    )
+    series_id = create_response.get_json()["id"]
+
+    update_response = client.patch(
+        f"/transactions/series/{series_id}",
+        json={
+            "amount_logic": {
+                "type": "escalating",
+                "direction": "increase",
+                "adjustment_type": "amount",
+                "value": "10.00",
+            },
+        },
+    )
+    assert update_response.status_code == 200
+
+    with app.app_context():
+        occurrences = (
+            Transaction.query.filter_by(recurring_series_id=series_id)
+            .order_by(Transaction.date)
+            .all()
+        )
+        assert [(t.date, t.amount) for t in occurrences] == [
+            (dt.date(2026, 1, 1), Decimal("100.00")),
+            (dt.date(2026, 2, 1), Decimal("110.00")),
+            (dt.date(2026, 3, 1), Decimal("120.00")),
+        ]
+
+
 def test_create_series_appears_in_window_with_running_total(client, app):
     with app.app_context():
         db.session.add(CheckingAccount(
@@ -966,6 +1075,7 @@ def test_get_series_returns_series_fields(client, app):
         "end_date": "2026-09-01",
         "notes": "biweekly job",
         "credit_card_id": None,
+        "amount_logic": None,
     }
 
 

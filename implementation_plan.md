@@ -11,7 +11,14 @@ design rationale before implementing any item below.
   down -v` wiped it; see specs.md § "Backup / import-export"
 - [x] Flask app factory + config (dev/test/prod via env vars)
 - [x] SQLAlchemy setup + Alembic init (`render_as_batch` enabled for
-  SQLite-safe migrations)
+  SQLite-safe migrations) — verified: `Flask-Migrate==4.0.7`'s `Migrate()`
+  defaults `render_as_batch=True`/`compare_type=True` into
+  `configure_args`, which `run_migrations_online()` (migrations/env.py)
+  already forwards via `**conf_args`; confirmed with
+  `app.extensions['migrate'].configure_args` and a live `flask db upgrade`
+  against a fresh sqlite file. Explicitly re-passing `render_as_batch=True`
+  there raises `TypeError: multiple values for keyword argument` — don't
+  do that.
 - [x] `.env.example` with Flask secret key and app config
 
 ## 1. Data model
@@ -37,23 +44,53 @@ design rationale before implementing any item below.
       a date range → list of period boundaries)
 - [x] Credit card payment-due amount calculator (sum `amount` on kind=credit
       transactions per closed period → generates virtual cash transaction on
-      due date)
+      due date) — reviewed the earlier note claiming `payment_due_transactions()`
+      wrongly generates rows for periods that haven't "actually closed" yet.
+      Determined that's not a bug: specs.md's "closed statement period"
+      describes the period's own start/close boundary (the window summed
+      over), not a real-time cutoff against today — the table view is a
+      1-year *forward* forecast (see specs.md's table view / main table
+      section), so future statement periods must still produce projected
+      due rows from already-scheduled recurring credit transactions, or
+      forecasting beyond one statement cycle would show no credit-card
+      outflows at all. Only `compute_starting_balance_due_date()` (point 6)
+      uses a real "as of now" cutoff, and it already does. No test asserts
+      a today-based cutoff on `payment_due_transactions()` itself; all 202
+      existing tests pass unchanged. Left behavior as-is.
 - [x] Running total calculator (baseline from `checking_accounts` +
       ascending walk through transactions with `occurrence_status != skipped`
       /generated CC payments)
 - [x] Unit tests for all of the above (cadence edge cases, custom intervals,
       statement period boundaries, negative balance detection)
-- [ ] When creating a recurring series, there should be an 'Advanced' button
+- [x] When creating a recurring series, there should be an 'Advanced' button
       which open/closes a Bootstrap Accordion/Collapse component, with advanced
       transaction amount logic. The database will have to be modified to support
       this (maybe as a string that can be translated into logic within the code?).
       Advanced logic includes:
-    - [ ] An if/elseif option which operates against the date (i.e. if a transaction
+    - [x] An if/elseif option which operates against the date (i.e. if a transaction
           date >= month/day or month/day/year then amount = x, elseif transaction
           date >= another month/day/etc. then amount = y, else amount = z)
-    - [ ] An increase/decrease option which increases or decreases the amount
+    - [x] An increase/decrease option which increases or decreases the amount
           on each subsequent occurrence of a transaction by an absolute amount
           or percentage.
+      Implementation: `recurring_series.amount_logic` (nullable JSON column,
+      migration `3167e16d7097`); `app/services/amount_logic.resolve_amount()`
+      evaluates it per occurrence date (conditional rules checked top-to-bottom,
+      first match wins, else `else_amount`/plain `amount`; escalating adjusts
+      `abs(amount)` by occurrence index — linear for flat amount, compounding
+      for percentage — floored at zero, then reapplies the original sign).
+      Wired into every occurrence-materialization site: `create_series`,
+      `update_series` (app/transactions.py) and backup import regen
+      (app/services/backup.py); export/import already carries it for free
+      since backup.py serializes generically over model columns. Validated
+      server-side by `_parse_amount_logic()`. UI: shared Jinja macro
+      `app/templates/_amount_logic_accordion.html` rendered into both the
+      add and edit recurring-series modals, wired up in
+      `app/static/js/recurring_series.js` (`initAmountLogicPanel`) for
+      show/hide, dynamic rule rows, and populate/serialize on open/submit.
+      Not covered by an automated UI test (no JS test runner in this repo);
+      verified by rendering `/recurring-series` through the Flask test
+      client and confirming both accordions are present in the markup.
 
 ## 4. Settings page
 - [x] View/edit checking accounts (add/edit/remove, starting balance,
