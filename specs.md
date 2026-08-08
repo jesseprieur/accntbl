@@ -110,15 +110,24 @@ recurring occurrences live here.
 
 `recurring_series.amount_logic` lets a series' per-occurrence amount deviate
 from its plain `amount`, evaluated at each occurrence date by
-`resolve_amount()`. Editable via an 'Advanced' accordion on the add/edit
-recurring series forms; when unset, the series behaves exactly as if the
-column didn't exist (plain `amount` every occurrence). Two modes (not
-combined):
+`resolve_amount()`. Editable on the add/edit recurring series forms via a
+Basic/Advanced mode toggle shown directly above the Amount field (Basic is
+the default and just shows the plain Amount field; Advanced keeps Amount
+visible — it now doubles as the default/starting/"else" amount — and reveals
+the rest of the amount-logic controls below it, replacing the old bottom-of-
+form 'Advanced' accordion). When unset (Basic mode, or Advanced with no rules
+configured), the series behaves exactly as if the column didn't exist (plain
+`amount` every occurrence). Two modes (not combined):
 
 - **Conditional**: an ordered list of date-threshold rules (`if transaction
   date >= month/day[/year] then amount = x`, `elseif ... then amount = y`,
-  `else amount = z`). Rules are checked top-to-bottom, first match wins; if
-  none match, falls back to `else_amount` or the plain `amount`.
+  `else amount = <the Amount field above>`). Rules are checked top-to-bottom,
+  first match wins; if none match, falls back to `else_amount` if the
+  backend value is set, otherwise the plain `amount`. The form no longer
+  collects a separate "else amount" input — it always submits `else_amount:
+  null` and relies on the Amount field as the effective else value — but the
+  backend/data model still accepts an explicit `else_amount` for backward
+  compatibility with existing rows.
 - **Escalating**: increases or decreases the amount on each subsequent
   occurrence, by either an absolute amount (linear) or a percentage
   (compounding), applied to `abs(amount)` and floored at zero, then

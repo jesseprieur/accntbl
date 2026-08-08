@@ -10,12 +10,13 @@ supported (see specs.md's "Advanced amount logic" section):
   whose threshold date (built from until_month/until_day, and until_year if
   given, else the occurrence's own year) is on-or-before the occurrence
   date wins; if none match, `else_amount` is used.
-- `{"type": "escalating", "direction": "increase"|"decrease",
-  "adjustment_type": "amount"|"percentage", "value": "..."}`
+- `{"type": "escalating", "adjustment_type": "amount"|"percentage",
+  "value": "..."}`
   Adjusts the magnitude of `series.amount` per occurrence index (0 for the
   first occurrence on/after `series.start_date`, 1 for the next, ...),
   linearly for "amount" or compounding for "percentage", floored at zero,
-  then reapplies the original sign.
+  then reapplies the original sign. `value` is signed: positive increases
+  the magnitude, negative decreases it.
 
 Both fall back to plain `series.amount` when `amount_logic` is unset or its
 type is unrecognized.
@@ -55,13 +56,12 @@ def _resolve_escalating(series, logic, occurrence_date):
     index = _occurrence_index(series, occurrence_date)
     magnitude = abs(series.amount)
     value = Decimal(str(logic["value"]))
-    sign = Decimal("-1") if logic.get("direction") == "decrease" else Decimal("1")
 
     if logic.get("adjustment_type") == "percentage":
-        factor = (Decimal("1") + sign * value / Decimal("100")) ** index
+        factor = (Decimal("1") + value / Decimal("100")) ** index
         magnitude = magnitude * factor
     else:
-        magnitude = magnitude + sign * value * index
+        magnitude = magnitude + value * index
 
     magnitude = max(magnitude, Decimal("0"))
     result_sign = Decimal("-1") if series.amount < 0 else Decimal("1")

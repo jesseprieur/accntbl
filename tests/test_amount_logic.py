@@ -81,7 +81,7 @@ def test_conditional_rule_with_explicit_year_is_a_one_time_threshold():
 def test_escalating_increase_by_flat_amount_each_occurrence():
     series = make_series(
         Decimal("-100.00"),
-        amount_logic={"type": "escalating", "direction": "increase", "adjustment_type": "amount", "value": "10.00"},
+        amount_logic={"type": "escalating", "adjustment_type": "amount", "value": "10.00"},
         cadence_type=CadenceType.monthly,
         start_date=dt.date(2026, 1, 1),
     )
@@ -93,7 +93,7 @@ def test_escalating_increase_by_flat_amount_each_occurrence():
 def test_escalating_decrease_by_percentage_compounds_and_preserves_sign():
     series = make_series(
         Decimal("-100.00"),
-        amount_logic={"type": "escalating", "direction": "decrease", "adjustment_type": "percentage", "value": "10"},
+        amount_logic={"type": "escalating", "adjustment_type": "percentage", "value": "-10"},
         cadence_type=CadenceType.monthly,
         start_date=dt.date(2026, 1, 1),
     )
@@ -105,7 +105,7 @@ def test_escalating_decrease_by_percentage_compounds_and_preserves_sign():
 def test_escalating_decrease_floors_at_zero_instead_of_going_positive():
     series = make_series(
         Decimal("-10.00"),
-        amount_logic={"type": "escalating", "direction": "decrease", "adjustment_type": "amount", "value": "100.00"},
+        amount_logic={"type": "escalating", "adjustment_type": "amount", "value": "-100.00"},
         cadence_type=CadenceType.monthly,
         start_date=dt.date(2026, 1, 1),
     )

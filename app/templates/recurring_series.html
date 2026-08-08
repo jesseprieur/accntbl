@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% import "_amount_logic_accordion.html" as amount_logic %}
+{% import "_amount_logic.html" as amount_logic %}
 
 {% block title %}Recurring Series — accntbl{% endblock %}
 
@@ -60,10 +60,7 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Amount</label>
-              <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
-            </div>
+            {{ amount_logic.amount_field("add-series") }}
             <div class="mb-2">
               <label class="form-label">Cadence</label>
               <select class="form-select form-select-sm" name="cadence_type" id="add-series-cadence" required>
@@ -99,7 +96,6 @@
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
             </div>
-            {{ amount_logic.accordion("add-series") }}
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
@@ -121,7 +117,7 @@
           </div>
           <div class="modal-body">
             <div class="text-danger small mb-2 d-none" id="edit-series-error"></div>
-            <p class="small text-muted">Saving updates the series and applies to all occurrences still attached to it.</p>
+            <p class="small text-muted">Updates the series and applies to all occurrences still attached</p>
             <div class="mb-2">
               <label class="form-label">Name</label>
               <input type="text" class="form-control form-control-sm" name="name" required>
@@ -143,10 +139,7 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Amount</label>
-              <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
-            </div>
+            {{ amount_logic.amount_field("edit-series") }}
             <div class="mb-2">
               <label class="form-label">Cadence</label>
               <select class="form-select form-select-sm" name="cadence_type" id="edit-series-cadence" required>
@@ -182,7 +175,6 @@
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
             </div>
-            {{ amount_logic.accordion("edit-series") }}
             <hr>
             <div class="mb-2">
               <label class="form-label d-block">Apply changes to</label>
@@ -198,7 +190,7 @@
             <div class="mb-2 d-none" id="edit-series-effective-date-field">
               <label class="form-label">Effective date</label>
               <input type="date" class="form-control form-control-sm" name="effective_date">
-              <p class="small text-muted mb-0">Occurrences on or before this date will be detached and left unchanged. Occurrences after this date will reflect the new values.</p>
+              <p class="small text-muted mb-0">Occurrences on or before this date will be detached and left the same</p>
             </div>
           </div>
           <div class="modal-footer">

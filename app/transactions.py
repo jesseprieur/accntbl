@@ -100,20 +100,16 @@ def _parse_amount_logic(value):
         }
 
     if logic_type == "escalating":
-        direction = value.get("direction")
-        if direction not in ("increase", "decrease"):
-            raise ValueError("Escalating amount logic direction must be 'increase' or 'decrease'.")
         adjustment_type = value.get("adjustment_type")
         if adjustment_type not in ("amount", "percentage"):
             raise ValueError(
                 "Escalating amount logic adjustment type must be 'amount' or 'percentage'."
             )
         magnitude = _parse_decimal_field(value.get("value"), "Escalation value")
-        if magnitude is None or magnitude < 0:
-            raise ValueError("Escalation value must be a non-negative number.")
+        if magnitude is None:
+            raise ValueError("Escalation value must be a number.")
         return {
             "type": "escalating",
-            "direction": direction,
             "adjustment_type": adjustment_type,
             "value": str(magnitude),
         }

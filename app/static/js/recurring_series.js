@@ -15,7 +15,7 @@
   function cadenceLabel(series) {
     const label = CADENCE_LABELS[series.cadence_type] || series.cadence_type;
     if (series.cadence_type === "custom") {
-      return `${label} (every ${series.custom_interval_value} ${series.custom_interval_unit})`;
+      return `Every ${series.custom_interval_value} ${series.custom_interval_unit}`;
     }
     return label;
   }
@@ -49,19 +49,25 @@
   function initAmountLogicPanel(root) {
     if (!root) return null;
 
+    const modeRadios = root.querySelectorAll("[data-amount-logic-mode]");
+    const advancedSection = root.querySelector("[data-amount-logic-advanced]");
+    const basicHint = root.querySelector("[data-amount-logic-basic-hint]");
     const typeRadios = root.querySelectorAll("[data-amount-logic-type]");
     const panels = root.querySelectorAll("[data-amount-logic-panel]");
     const rulesContainer = root.querySelector("[data-amount-logic-rules]");
     const ruleTemplate = root.querySelector("[data-amount-logic-rule-template]");
     const addRuleButton = root.querySelector('[data-amount-logic-action="add-rule"]');
-    const elseAmountInput = root.querySelector('[data-amount-logic-field="else_amount"]');
-    const escalationDirectionRadios = root.querySelectorAll('[data-amount-logic-field="direction"]');
     const escalationValueInput = root.querySelector('[data-amount-logic-field="value"]');
     const escalationAdjustmentSelect = root.querySelector('[data-amount-logic-field="adjustment_type"]');
 
+    function selectedMode() {
+      const checked = root.querySelector("[data-amount-logic-mode]:checked");
+      return checked ? checked.value : "basic";
+    }
+
     function selectedType() {
       const checked = root.querySelector("[data-amount-logic-type]:checked");
-      return checked ? checked.value : "none";
+      return checked ? checked.value : "conditional";
     }
 
     function showPanelFor(type) {
@@ -70,6 +76,14 @@
       });
     }
 
+    function showAdvancedFor(mode) {
+      const isAdvanced = mode === "advanced";
+      if (advancedSection) advancedSection.classList.toggle("d-none", !isAdvanced);
+      if (basicHint) basicHint.classList.toggle("d-none", !isAdvanced);
+      if (isAdvanced) showPanelFor(selectedType());
+    }
+
+    modeRadios.forEach((radio) => radio.addEventListener("change", () => showAdvancedFor(selectedMode())));
     typeRadios.forEach((radio) => radio.addEventListener("change", () => showPanelFor(selectedType())));
 
     function addRuleRow(rule) {
@@ -100,13 +114,10 @@
     }
 
     function reset() {
-      root.querySelector('[data-amount-logic-type][value="none"]').checked = true;
-      showPanelFor("none");
+      root.querySelector('[data-amount-logic-mode][value="basic"]').checked = true;
+      root.querySelector('[data-amount-logic-type][value="conditional"]').checked = true;
+      showAdvancedFor("basic");
       if (rulesContainer) rulesContainer.innerHTML = "";
-      if (elseAmountInput) elseAmountInput.value = "";
-      escalationDirectionRadios.forEach((radio) => {
-        radio.checked = radio.value === "increase";
-      });
       if (escalationValueInput) escalationValueInput.value = "";
       if (escalationAdjustmentSelect) escalationAdjustmentSelect.value = "amount";
     }
@@ -115,22 +126,21 @@
       reset();
       if (!amountLogic) return;
       if (amountLogic.type === "conditional") {
+        root.querySelector('[data-amount-logic-mode][value="advanced"]').checked = true;
         root.querySelector('[data-amount-logic-type][value="conditional"]').checked = true;
-        showPanelFor("conditional");
+        showAdvancedFor("advanced");
         (amountLogic.rules || []).forEach((rule) => addRuleRow(rule));
-        if (elseAmountInput) elseAmountInput.value = amountLogic.else_amount ?? "";
       } else if (amountLogic.type === "escalating") {
+        root.querySelector('[data-amount-logic-mode][value="advanced"]').checked = true;
         root.querySelector('[data-amount-logic-type][value="escalating"]').checked = true;
-        showPanelFor("escalating");
-        escalationDirectionRadios.forEach((radio) => {
-          radio.checked = radio.value === amountLogic.direction;
-        });
+        showAdvancedFor("advanced");
         if (escalationValueInput) escalationValueInput.value = amountLogic.value ?? "";
         if (escalationAdjustmentSelect) escalationAdjustmentSelect.value = amountLogic.adjustment_type || "amount";
       }
     }
 
     function serialize() {
+      if (selectedMode() !== "advanced") return null;
       const type = selectedType();
       if (type === "conditional") {
         const rules = Array.from(rulesContainer.querySelectorAll("[data-amount-logic-rule-row]")).map((row) => ({
@@ -142,14 +152,12 @@
         return {
           type: "conditional",
           rules,
-          else_amount: elseAmountInput ? elseAmountInput.value || null : null,
+          else_amount: null,
         };
       }
       if (type === "escalating") {
-        const directionRadio = root.querySelector('[data-amount-logic-field="direction"]:checked');
         return {
           type: "escalating",
-          direction: directionRadio ? directionRadio.value : "increase",
           adjustment_type: escalationAdjustmentSelect ? escalationAdjustmentSelect.value : "amount",
           value: escalationValueInput ? escalationValueInput.value : "",
         };
@@ -157,7 +165,7 @@
       return null;
     }
 
-    showPanelFor(selectedType());
+    showAdvancedFor(selectedMode());
 
     return { serialize, populate, reset };
   }
@@ -370,7 +378,7 @@
         }
         if (
           !window.confirm(
-            `Occurrences on or before ${effectiveDate} will be detached and left unchanged. Occurrences after ${effectiveDate} will use the new values. Continue?`
+            `Occurrences on or before ${effectiveDate} will be detached and left the same. Occurrences after ${effectiveDate} will use the new values. Continue?`
           )
         ) {
           return;

@@ -947,7 +947,7 @@ def test_create_series_rejects_conditional_amount_logic_without_rules(client):
     assert response.status_code == 400
 
 
-def test_create_series_rejects_escalating_amount_logic_with_bad_direction(client):
+def test_create_series_rejects_escalating_amount_logic_with_bad_adjustment_type(client):
     response = client.post(
         "/transactions/series",
         json={
@@ -958,8 +958,7 @@ def test_create_series_rejects_escalating_amount_logic_with_bad_direction(client
             "start_date": "2026-01-01",
             "amount_logic": {
                 "type": "escalating",
-                "direction": "sideways",
-                "adjustment_type": "amount",
+                "adjustment_type": "sideways",
                 "value": "10.00",
             },
         },
@@ -986,7 +985,6 @@ def test_update_series_with_escalating_amount_logic_regenerates_with_new_amounts
         json={
             "amount_logic": {
                 "type": "escalating",
-                "direction": "increase",
                 "adjustment_type": "amount",
                 "value": "10.00",
             },

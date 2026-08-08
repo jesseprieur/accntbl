@@ -42,9 +42,11 @@ design rationale before implementing any item below.
       /generated CC payments)
 - [x] Unit tests for all of the above (cadence edge cases, custom intervals,
       statement period boundaries, negative balance detection)
-- [x] When creating/editing a recurring series, an 'Advanced' button opens a
-      Bootstrap Accordion/Collapse component with advanced amount logic
-      (see specs.md § "Advanced amount logic")
+- [x] When creating/editing a recurring series, a Basic/Advanced radio toggle
+      shown above the Amount field switches between the plain Amount input
+      (Basic, default) and the full amount-logic controls (Advanced, with
+      Amount doubling as the default/starting/else amount) — see specs.md
+      § "Advanced amount logic"
     - [x] Conditional if/elseif date-based amount rules
     - [x] Escalating increase/decrease (absolute amount or percentage) per
           occurrence
