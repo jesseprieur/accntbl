@@ -96,6 +96,25 @@
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
             </div>
+            <div class="mb-2">
+              <label class="form-label d-block">Needs / Wants / Savings</label>
+              <div class="btn-group" role="group" aria-label="Needs/Wants/Savings">
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="add-series-nws-need" value="need" checked>
+                <label class="btn btn-outline-primary btn-sm" for="add-series-nws-need">Need</label>
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="add-series-nws-want" value="want">
+                <label class="btn btn-outline-primary btn-sm" for="add-series-nws-want">Want</label>
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="add-series-nws-savings" value="savings">
+                <label class="btn btn-outline-primary btn-sm" for="add-series-nws-savings">Savings</label>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Category</label>
+              <select class="form-select form-select-sm" name="category_id">
+                {% for category in categories %}
+                  <option value="{{ category.id }}" {% if category.id == default_category_id %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
@@ -174,6 +193,25 @@
             <div class="mb-2">
               <label class="form-label">Notes</label>
               <input type="text" class="form-control form-control-sm" name="notes">
+            </div>
+            <div class="mb-2">
+              <label class="form-label d-block">Needs / Wants / Savings</label>
+              <div class="btn-group" role="group" aria-label="Needs/Wants/Savings">
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-series-nws-need" value="need">
+                <label class="btn btn-outline-primary btn-sm" for="edit-series-nws-need">Need</label>
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-series-nws-want" value="want">
+                <label class="btn btn-outline-primary btn-sm" for="edit-series-nws-want">Want</label>
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-series-nws-savings" value="savings">
+                <label class="btn btn-outline-primary btn-sm" for="edit-series-nws-savings">Savings</label>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Category</label>
+              <select class="form-select form-select-sm" name="category_id">
+                {% for category in categories %}
+                  <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+              </select>
             </div>
             <hr>
             <div class="mb-2">

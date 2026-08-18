@@ -78,9 +78,9 @@ grouped at the bottom.
 - [x] "Save for all occurrences" vs "save for future events after a date"
       split-save mode, with confirmation on the future-events option (see
       specs.md § "Recurring series editing semantics")
-- [ ] needsWantsSavings selector on add/edit form (default `Need`) — see
+- [x] needsWantsSavings selector on add/edit form (default `Need`) — see
       specs.md § "Needs/Wants/Savings and categories"
-- [ ] category selector on add/edit form (default `None`) — see specs.md §
+- [x] category selector on add/edit form (default `None`) — see specs.md §
       "Needs/Wants/Savings and categories"
 - [ ] "Per Month" column on the series list, normalizing each cadence to a
       monthly rate — see specs.md § "Per Month column (Recurring Series

@@ -15,11 +15,13 @@ from app.auth import login_required
 from app.extensions import db
 from app.models import (
     CadenceType,
+    Category,
     CheckingAccount,
     CreditCard,
     CreditDueOverride,
     CustomIntervalUnit,
     Kind,
+    NeedsWantsSavings,
     OccurrenceStatus,
     RecurringSeries,
     Transaction,
@@ -143,6 +145,28 @@ def _resolve_credit_card_id(kind, requested_id, existing_id):
     if default_card is None:
         raise ValueError("A credit card is required; add one in Settings first.")
     return default_card.id
+
+
+def _resolve_category_id(requested_id, existing_id):
+    """Resolve `category_id` for a transaction/series being created or edited.
+
+    Mirrors `_resolve_credit_card_id`: an explicitly requested category is
+    validated to exist, otherwise the current category is kept, otherwise
+    falls back to the seeded `None` category.
+    """
+    if requested_id is not None:
+        try:
+            category_id = int(requested_id)
+        except (TypeError, ValueError):
+            raise ValueError("Category is invalid.")
+        if not Category.query.get(category_id):
+            raise ValueError("Category not found.")
+        return category_id
+
+    if existing_id is not None:
+        return existing_id
+
+    return Category.default_category_id()
 
 
 @transactions_bp.route("/window", methods=["GET"])
@@ -371,6 +395,13 @@ def create_series():
         )
 
         amount_logic = _parse_amount_logic(payload.get("amount_logic"))
+
+        needs_wants_savings = _parse_enum_field(
+            NeedsWantsSavings,
+            payload.get("needs_wants_savings", NeedsWantsSavings.need.value),
+            "Needs/Wants/Savings",
+        )
+        category_id = _resolve_category_id(payload.get("category_id"), None)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -386,6 +417,8 @@ def create_series():
         notes=notes,
         credit_card_id=credit_card_id,
         amount_logic=amount_logic,
+        needs_wants_savings=needs_wants_savings,
+        category_id=category_id,
     )
     db.session.add(series)
     db.session.flush()
@@ -405,6 +438,8 @@ def create_series():
                 recurring_series_id=series.id,
                 occurrence_status=OccurrenceStatus.attached,
                 credit_card_id=credit_card_id,
+                needs_wants_savings=series.needs_wants_savings,
+                category_id=series.category_id,
             )
         )
 
@@ -428,6 +463,8 @@ def create_series():
             "notes": series.notes,
             "credit_card_id": series.credit_card_id,
             "amount_logic": series.amount_logic,
+            "needs_wants_savings": series.needs_wants_savings.value,
+            "category_id": series.category_id,
             "occurrences_created": len(occurrence_dates),
         }
     ), 201
@@ -455,6 +492,8 @@ def list_series():
                     "notes": s.notes,
                     "credit_card_id": s.credit_card_id,
                     "amount_logic": s.amount_logic,
+                    "needs_wants_savings": s.needs_wants_savings.value,
+                    "category_id": s.category_id,
                 }
                 for s in series
             ]
@@ -485,6 +524,8 @@ def get_series(series_id):
             "notes": series.notes,
             "credit_card_id": series.credit_card_id,
             "amount_logic": series.amount_logic,
+            "needs_wants_savings": series.needs_wants_savings.value,
+            "category_id": series.category_id,
         }
     )
 
@@ -564,6 +605,16 @@ def update_series(series_id):
         if "amount_logic" in payload:
             series.amount_logic = _parse_amount_logic(payload["amount_logic"])
 
+        if "needs_wants_savings" in payload:
+            series.needs_wants_savings = _parse_enum_field(
+                NeedsWantsSavings, payload["needs_wants_savings"], "Needs/Wants/Savings"
+            )
+
+        if "category_id" in payload:
+            series.category_id = _resolve_category_id(
+                payload.get("category_id"), series.category_id
+            )
+
         effective_date = None
         if payload.get("save_mode") == "future":
             if not payload.get("effective_date"):
@@ -613,6 +664,8 @@ def update_series(series_id):
                 recurring_series_id=series.id,
                 occurrence_status=OccurrenceStatus.attached,
                 credit_card_id=series.credit_card_id,
+                needs_wants_savings=series.needs_wants_savings,
+                category_id=series.category_id,
             )
         )
 
@@ -636,6 +689,8 @@ def update_series(series_id):
             "notes": series.notes,
             "credit_card_id": series.credit_card_id,
             "amount_logic": series.amount_logic,
+            "needs_wants_savings": series.needs_wants_savings.value,
+            "category_id": series.category_id,
             "occurrences_created": len(occurrence_dates),
         }
     )

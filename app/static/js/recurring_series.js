@@ -245,6 +245,8 @@
         end_date: formData.get("end_date") || null,
         notes: formData.get("notes") || null,
         amount_logic: addAmountLogic ? addAmountLogic.serialize() : null,
+        needs_wants_savings: formData.get("needs_wants_savings"),
+        category_id: formData.get("category_id"),
       };
       if (kind === "credit") {
         body.credit_card_id = formData.get("credit_card_id");
@@ -331,6 +333,10 @@
         if (data.credit_card_id != null) {
           editSeriesForm.elements["credit_card_id"].value = data.credit_card_id;
         }
+        editSeriesForm.elements["needs_wants_savings"].value = data.needs_wants_savings;
+        if (data.category_id != null) {
+          editSeriesForm.elements["category_id"].value = data.category_id;
+        }
         editSeriesForm.elements["save_mode"].value = "all";
         editSeriesForm.elements["effective_date"].value = "";
         if (editAmountLogic) editAmountLogic.populate(data.amount_logic);
@@ -363,6 +369,8 @@
         end_date: formData.get("end_date") || null,
         notes: formData.get("notes") || null,
         amount_logic: editAmountLogic ? editAmountLogic.serialize() : null,
+        needs_wants_savings: formData.get("needs_wants_savings"),
+        category_id: formData.get("category_id"),
       };
       if (kind === "credit") {
         body.credit_card_id = formData.get("credit_card_id");

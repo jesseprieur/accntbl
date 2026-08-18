@@ -8,6 +8,7 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     CadenceType,
+    Category,
     CheckingAccount,
     CreditCard,
     CreditDueOverride,
@@ -782,6 +783,53 @@ def test_create_series_monthly_materializes_attached_occurrences(client, app):
             assert occurrence.notes == "biweekly job"
 
 
+def test_create_series_sets_and_inherits_needs_wants_savings_and_category(client, app):
+    with app.app_context():
+        other_category = Category(name="Subscriptions")
+        db.session.add(other_category)
+        db.session.commit()
+        other_category_id = other_category.id
+
+    response = client.post(
+        "/transactions/series",
+        json={
+            "name": "Gym",
+            "kind": "cash",
+            "amount": "-50.00",
+            "cadence_type": "monthly",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-01",
+            "needs_wants_savings": "want",
+            "category_id": other_category_id,
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["needs_wants_savings"] == "want"
+    assert data["category_id"] == other_category_id
+
+    with app.app_context():
+        series = RecurringSeries.query.get(data["id"])
+        assert series.needs_wants_savings.value == "want"
+        assert series.category_id == other_category_id
+
+        occurrence = Transaction.query.filter_by(recurring_series_id=data["id"]).one()
+        assert occurrence.needs_wants_savings.value == "want"
+        assert occurrence.category_id == other_category_id
+
+    patch_response = client.patch(
+        f"/transactions/series/{data['id']}",
+        json={"needs_wants_savings": "savings"},
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.get_json()["needs_wants_savings"] == "savings"
+
+    with app.app_context():
+        regenerated = Transaction.query.filter_by(recurring_series_id=data["id"]).one()
+        assert regenerated.needs_wants_savings.value == "savings"
+        assert regenerated.category_id == other_category_id
+
+
 def test_create_series_credit_kind_sets_amount(client, app):
     with app.app_context():
         db.session.add(CreditCard(
@@ -1058,6 +1106,9 @@ def test_get_series_returns_series_fields(client, app):
     )
     series_id = create_response.get_json()["id"]
 
+    with app.app_context():
+        none_category_id = Category.none_category().id
+
     response = client.get(f"/transactions/series/{series_id}")
     assert response.status_code == 200
     data = response.get_json()
@@ -1074,6 +1125,8 @@ def test_get_series_returns_series_fields(client, app):
         "notes": "biweekly job",
         "credit_card_id": None,
         "amount_logic": None,
+        "needs_wants_savings": "need",
+        "category_id": none_category_id,
     }
 
 

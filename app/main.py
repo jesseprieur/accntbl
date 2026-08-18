@@ -3,7 +3,7 @@ import json
 from flask import Blueprint, render_template
 
 from app.auth import login_required
-from app.models import CreditCard
+from app.models import Category, CreditCard
 
 main_bp = Blueprint("main", __name__)
 
@@ -20,13 +20,25 @@ def _credit_cards_context():
     }
 
 
+def _categories_context():
+    categories = Category.query.order_by(Category.id).all()
+    return {
+        "categories": categories,
+        "default_category_id": Category.default_category_id(),
+    }
+
+
 @main_bp.route("/")
 @login_required
 def index():
-    return render_template("index.html", **_credit_cards_context())
+    return render_template(
+        "index.html", **_credit_cards_context(), **_categories_context()
+    )
 
 
 @main_bp.route("/recurring-series")
 @login_required
 def recurring_series():
-    return render_template("recurring_series.html", **_credit_cards_context())
+    return render_template(
+        "recurring_series.html", **_credit_cards_context(), **_categories_context()
+    )
