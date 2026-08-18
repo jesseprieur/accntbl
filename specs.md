@@ -58,6 +58,20 @@ reference it (must reassign those first) or if it is the current default
 (must promote another card to default first). If only one card exists, it
 cannot be deleted at all.
 
+### `categories`
+User-managed labels for transactions/series, separate from the fixed
+`needsWantsSavings` classification below. Managed on the Settings page (add
+new categories; no edit/delete of the seeded `None` row).
+- id
+- name (unique)
+
+Seeded with a single row, `None`, at v1-of-this-feature migration time — the
+default for every existing and new transaction/series until the user adds
+more via Settings. Deleting a category in use is blocked (must reassign
+referencing transactions/series to another category first), mirroring the
+`credit_cards` deletion-blocking pattern; the `None` category itself can
+never be deleted (it's the fallback default and must always exist).
+
 ### `recurring_series`
 Template for generating repeated transactions.
 - id
@@ -77,6 +91,14 @@ Template for generating repeated transactions.
 - notes (optional)
 - amount_logic (nullable JSON — optional conditional/escalating override of
   plain `amount` per occurrence; see "Advanced amount logic" below)
+- needs_wants_savings (`need` | `want` | `savings`, not nullable, defaults
+  to `need`) — classification inherited by every occurrence generated from
+  this series unless the occurrence is later detached and re-edited (see
+  "Recurring series editing semantics" — same inheritance rules as any other
+  series field).
+- category_id (FK to `categories`, not nullable, defaults to the `None`
+  category's id at creation) — same inheritance behavior as
+  `needs_wants_savings`.
 
 ### `transactions`
 Concrete line items shown in the table. Both one-off and materialized
@@ -95,6 +117,10 @@ recurring occurrences live here.
 - date
 - notes (optional)
 - recurring_series_id (nullable — set if generated from a series)
+- needs_wants_savings (`need` | `want` | `savings`, not nullable, defaults
+  to `need`) — see "Needs/Wants/Savings and categories" below.
+- category_id (FK to `categories`, not nullable, defaults to the `None`
+  category's id) — see "Needs/Wants/Savings and categories" below.
 - occurrence_status (`attached` | `detached` | `skipped`, only meaningful
   when `recurring_series_id` is set — default `attached`):
   - `attached`: still managed by the series; series edits regenerate/update
@@ -137,6 +163,31 @@ configured), the series behaves exactly as if the column didn't exist (plain
 Applies at every occurrence-materialization site (series create/update,
 backup import regeneration) — an occurrence's stored `amount` is always the
 resolved value for its date, not a formula.
+
+## Needs/Wants/Savings and categories
+
+Every transaction and recurring series carries two independent, orthogonal
+classification attributes, both editable wherever amount/date/etc. are
+already editable (one-off add/edit form, recurring series add/edit form,
+inline row edit):
+
+- **`needsWantsSavings`**: a fixed 3-value enum (`Need` | `Want` |
+  `Savings`), defaulting to `Need`. Not user-extensible — these three
+  buckets are structural to the feature (budgeting rule-of-thumb style
+  breakdown), unlike `categories` below.
+- **`category`**: a user-managed, open-ended label (see `categories` in
+  "Data model"). Seeded with a single `None` category; users add more via
+  the Settings page. A dropdown on every transaction/series form, defaulting
+  to `None`.
+
+Editing either attribute on an `attached` series occurrence follows the same
+detach-on-save rule as any other field (see "Recurring series editing
+semantics") — it is not special-cased.
+
+Both attributes are for classification/reporting only in this phase; they do
+not affect running-total math, credit card payment logic, or occurrence
+generation. (A future phase may add spend-by-category or
+needs/wants/savings-ratio reporting to the Statistics page.)
 
 ## Credit card payment logic
 
@@ -301,17 +352,22 @@ password, Flask session-based auth). No self-registration UI needed for v1
   infinite scroll.
 - Settings page manages a list of credit cards (add/edit/delete, mark one as
   default) rather than a single singleton form; delete is blocked per the
-  rules in the `credit_cards` data model section above.
+  rules in the `credit_cards` data model section above. It also manages the
+  list of `categories` (add new; the seeded `None` category and any category
+  still referenced by a transaction/series cannot be deleted).
+- A top-level Statistics page (see "Statistics page") shows the running-total
+  min/max table.
 - Table loads an initial window of rows around "today", then fetches more via
   Ajax as the user scrolls down (future, up to 1 year out) or up (past
   history).
 - Row edit = inline editable fields (name, cash/credit amount, date, notes,
-  and — when kind=credit — a credit card selector defaulting to the current
-  default card) with explicit save/cancel, saved via Ajax PATCH (see
-  "Recurring series editing semantics" for the attached-row detach-on-save
-  behavior).
+  needsWantsSavings, category, and — when kind=credit — a credit card
+  selector defaulting to the current default card) with explicit
+  save/cancel, saved via Ajax PATCH (see "Recurring series editing
+  semantics" for the attached-row detach-on-save behavior).
 - Adding a one-off transaction = a small form/modal on the main table page;
-  choosing kind=credit reveals the credit card selector (default
+  includes needsWantsSavings (default Need) and category (default None)
+  selectors; choosing kind=credit reveals the credit card selector (default
   preselected, user may pick another card).
 - Credit card payment-due rows show which card they belong to (when more
   than one card exists) and an "edit estimate" affordance to set/clear the
@@ -324,6 +380,51 @@ password, Flask session-based auth). No self-registration UI needed for v1
   before the delete request is sent (destructive, irreversible — see
   "Recurring series editing semantics" for what happens to its
   occurrences).
+
+## Statistics page
+
+A new top-level page, alongside the main table / Recurring Series /
+Settings pages, showing a single table of running-total extremes over three
+forward-looking windows: **3 months**, **6 months**, and **1 year**, each
+measured as `[today, today + N]` (matches the main table's forward
+projection horizon — 1 year is the outer bound already computed elsewhere,
+so no new occurrence-generation range is needed).
+
+For each window, using the same cash running total defined in "Running
+total calculation" (kind=cash rows and generated credit-card payment-due
+rows only, skipped rows excluded), the table shows one row per window with:
+- Minimum running total in that window, and the date it occurs on
+- Maximum running total in that window, and the date it occurs on
+
+Computed at render time (not persisted), same rationale as the credit-card
+payment-due estimate: cheap at personal-scale data volume and avoids
+cache-invalidation complexity. If a window contains a tie for min or max,
+the earliest occurring date wins.
+
+## Per Month column (Recurring Series page)
+
+The Recurring Series list gains a **Per Month** column showing each series'
+average monthly cost/income, so cadences with different periods (weekly,
+quarterly, yearly, etc.) are comparable at a glance:
+
+- `monthly`: `amount` as-is.
+- `weekly`: `amount * 52 / 12`.
+- `biweekly`: `amount * 26 / 12`.
+- `semi_monthly`: `amount * 2`.
+- `quarterly`: `amount / 3`.
+- `yearly`: `amount / 12`.
+- `custom`: normalized to a monthly rate using `custom_interval_value` /
+  `custom_interval_unit` (e.g. `days` → `amount * (30.44 / interval_value)`,
+  `weeks` → `amount * (52 / 12) / interval_value`, `months` → `amount /
+  interval_value`), using a 30.44-day average month for the `days` case
+  since calendar months vary in length.
+
+When `amount_logic` is set (see "Advanced amount logic"), this column uses
+the plain `amount` field (the base/else amount), not a resolved per-
+occurrence value — escalating/conditional series don't have one true
+"amount" to average, and computing a true date-window average would require
+picking an arbitrary window. This is a display-only convenience figure, not
+used in running-total math.
 
 ## Backup / import-export
 
@@ -344,12 +445,15 @@ from DB corruption.
   - `checking_accounts` (all fields)
   - `credit_cards` (all fields, including `is_default`)
   - `credit_due_overrides` (all fields)
-  - `recurring_series` (all fields) — importing these regenerates their
+  - `categories` (all fields)
+  - `recurring_series` (all fields, including `needs_wants_savings` and
+    `category_id`) — importing these regenerates their
     `attached` occurrences via the existing recurring-occurrence generator,
     so individual `attached` transaction rows are deliberately NOT exported;
     re-deriving them avoids double-storing data that's already fully
     determined by the series definition.
-  - `transactions` where `recurring_series_id IS NULL` OR
+  - `transactions` (including `needs_wants_savings` and `category_id`)
+    where `recurring_series_id IS NULL` OR
     `occurrence_status IN ('detached', 'skipped')` — i.e. every row that
     is NOT a currently-`attached` series occurrence, since those regenerate
     on import. `skipped` rows are included so the skip decision survives a
@@ -377,8 +481,8 @@ from DB corruption.
      scope for v1).
   2. Wrap in a single DB transaction: delete all rows from
      `transactions`, `recurring_series`, `credit_due_overrides`,
-     `credit_cards`, `checking_accounts` (in FK-safe order), then insert the
-     backup's rows for each in the reverse order.
+     `credit_cards`, `checking_accounts`, `categories` (in FK-safe order),
+     then insert the backup's rows for each in the reverse order.
   3. Re-run the recurring-occurrence generator for every imported
      `recurring_series` over the standard past-history-through-1-year-out
      window, to regenerate `attached` transaction rows (mirrors what
