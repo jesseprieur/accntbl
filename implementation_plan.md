@@ -82,7 +82,7 @@ grouped at the bottom.
       specs.md § "Needs/Wants/Savings and categories"
 - [x] category selector on add/edit form (default `None`) — see specs.md §
       "Needs/Wants/Savings and categories"
-- [ ] "Per Month" column on the series list, normalizing each cadence to a
+- [x] "Per Month" column on the series list, normalizing each cadence to a
       monthly rate — see specs.md § "Per Month column (Recurring Series
       page)"
 

@@ -27,7 +27,7 @@ from app.models import (
     Transaction,
 )
 from app.services.amount_logic import resolve_amount
-from app.services.recurring import generate_occurrences
+from app.services.recurring import generate_occurrences, per_month_amount
 from app.services.running_total import compute_running_total
 
 transactions_bp = Blueprint("transactions", __name__, url_prefix="/transactions")
@@ -515,6 +515,7 @@ def list_series():
                     "amount_logic": s.amount_logic,
                     "needs_wants_savings": s.needs_wants_savings.value,
                     "category_id": s.category_id,
+                    "per_month": str(per_month_amount(s)),
                 }
                 for s in series
             ]

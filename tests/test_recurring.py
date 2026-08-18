@@ -3,8 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from decimal import Decimal
+
 from app.models import CadenceType, CustomIntervalUnit
-from app.services.recurring import generate_occurrences
+from app.services.recurring import generate_occurrences, per_month_amount
 
 
 def make_series(
@@ -185,3 +187,80 @@ def test_unsupported_cadence_type_raises():
     series = make_series("bogus", dt.date(2026, 1, 1))
     with pytest.raises(ValueError):
         generate_occurrences(series, dt.date(2026, 1, 1), dt.date(2026, 1, 31))
+
+
+def make_amount_series(
+    cadence_type,
+    amount,
+    custom_interval_value=None,
+    custom_interval_unit=None,
+):
+    return SimpleNamespace(
+        cadence_type=cadence_type,
+        amount=Decimal(amount),
+        custom_interval_value=custom_interval_value,
+        custom_interval_unit=custom_interval_unit,
+    )
+
+
+def test_per_month_monthly_is_unchanged():
+    series = make_amount_series(CadenceType.monthly, "100")
+    assert per_month_amount(series) == Decimal("100")
+
+
+def test_per_month_weekly():
+    series = make_amount_series(CadenceType.weekly, "100")
+    assert per_month_amount(series) == Decimal("100") * Decimal(52) / Decimal(12)
+
+
+def test_per_month_biweekly():
+    series = make_amount_series(CadenceType.biweekly, "100")
+    assert per_month_amount(series) == Decimal("100") * Decimal(26) / Decimal(12)
+
+
+def test_per_month_semi_monthly_doubles():
+    series = make_amount_series(CadenceType.semi_monthly, "50")
+    assert per_month_amount(series) == Decimal("100")
+
+
+def test_per_month_quarterly():
+    series = make_amount_series(CadenceType.quarterly, "300")
+    assert per_month_amount(series) == Decimal("300") / 3
+
+
+def test_per_month_yearly():
+    series = make_amount_series(CadenceType.yearly, "1200")
+    assert per_month_amount(series) == Decimal("1200") / 12
+
+
+def test_per_month_custom_days():
+    series = make_amount_series(
+        CadenceType.custom, "10", custom_interval_value=2, custom_interval_unit=CustomIntervalUnit.days
+    )
+    assert per_month_amount(series) == Decimal("10") * (Decimal("30.44") / Decimal(2))
+
+
+def test_per_month_custom_weeks():
+    series = make_amount_series(
+        CadenceType.custom, "10", custom_interval_value=3, custom_interval_unit=CustomIntervalUnit.weeks
+    )
+    assert per_month_amount(series) == Decimal("10") * (Decimal(52) / Decimal(12)) / Decimal(3)
+
+
+def test_per_month_custom_months():
+    series = make_amount_series(
+        CadenceType.custom, "60", custom_interval_value=2, custom_interval_unit=CustomIntervalUnit.months
+    )
+    assert per_month_amount(series) == Decimal("60") / 2
+
+
+def test_per_month_custom_without_unit_raises():
+    series = make_amount_series(CadenceType.custom, "10", custom_interval_value=2)
+    with pytest.raises(ValueError):
+        per_month_amount(series)
+
+
+def test_per_month_unsupported_cadence_raises():
+    series = make_amount_series("bogus", "10")
+    with pytest.raises(ValueError):
+        per_month_amount(series)

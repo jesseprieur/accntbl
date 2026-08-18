@@ -20,6 +20,12 @@
     return label;
   }
 
+  function perMonthLabel(series) {
+    const value = Number(series.per_month);
+    if (Number.isNaN(value)) return series.per_month;
+    return value.toFixed(2);
+  }
+
   function buildRow(series) {
     const tr = document.createElement("tr");
     tr.dataset.id = series.id;
@@ -27,6 +33,7 @@
       <td>${Escape.html(series.name)}</td>
       <td>${series.kind}</td>
       <td>${series.amount}</td>
+      <td>${perMonthLabel(series)}</td>
       <td>${cadenceLabel(series)}</td>
       <td>${series.start_date}</td>
       <td>${series.end_date || ""}</td>
@@ -179,7 +186,7 @@
       .then((data) => {
         tbody.innerHTML = "";
         if (data.series.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-muted">No recurring series yet.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-muted">No recurring series yet.</td></tr>';
           return;
         }
         data.series.forEach((series) => tbody.appendChild(buildRow(series)));

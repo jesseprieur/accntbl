@@ -6,6 +6,7 @@ which that series occurs within the range. See specs.md's
 """
 import calendar
 from datetime import timedelta
+from decimal import Decimal
 
 from app.models import CadenceType, CustomIntervalUnit
 
@@ -142,6 +143,49 @@ def generate_occurrences(series, range_start, range_end):
             return _generate_month_based(
                 series, series.custom_interval_value, range_start, range_end
             )
+        raise ValueError("custom cadence requires custom_interval_unit")
+
+    raise ValueError(f"unsupported cadence_type: {cadence!r}")
+
+
+_MONTHLY_MULTIPLIERS = {
+    CadenceType.monthly: Decimal(1),
+    CadenceType.weekly: Decimal(52) / Decimal(12),
+    CadenceType.biweekly: Decimal(26) / Decimal(12),
+    CadenceType.semi_monthly: Decimal(2),
+}
+
+_MONTHLY_DIVISORS = {
+    CadenceType.quarterly: Decimal(3),
+    CadenceType.yearly: Decimal(12),
+}
+
+_AVERAGE_DAYS_PER_MONTH = Decimal("30.44")
+
+
+def per_month_amount(series):
+    """Normalize `series.amount` to an average monthly rate, per
+    specs.md's "Per Month column (Recurring Series page)" section. Always
+    uses the plain `amount` field, even when `amount_logic` is set.
+    """
+    cadence = series.cadence_type
+    amount = Decimal(series.amount)
+
+    if cadence in _MONTHLY_MULTIPLIERS:
+        return amount * _MONTHLY_MULTIPLIERS[cadence]
+
+    if cadence in _MONTHLY_DIVISORS:
+        return amount / _MONTHLY_DIVISORS[cadence]
+
+    if cadence == CadenceType.custom:
+        interval_value = Decimal(series.custom_interval_value)
+        unit = series.custom_interval_unit
+        if unit == CustomIntervalUnit.days:
+            return amount * (_AVERAGE_DAYS_PER_MONTH / interval_value)
+        if unit == CustomIntervalUnit.weeks:
+            return amount * (Decimal(52) / Decimal(12)) / interval_value
+        if unit == CustomIntervalUnit.months:
+            return amount / interval_value
         raise ValueError("custom cadence requires custom_interval_unit")
 
     raise ValueError(f"unsupported cadence_type: {cadence!r}")
