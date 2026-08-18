@@ -6,7 +6,7 @@ from flask import Blueprint, Response, flash, redirect, render_template, request
 
 from app.auth import login_required
 from app.extensions import db
-from app.models import CheckingAccount, CreditCard
+from app.models import Category, CheckingAccount, CreditCard
 from app.services.backup import build_snapshot, restore_snapshot, validate_snapshot
 from app.services.credit_card import compute_starting_balance_due_date
 
@@ -39,10 +39,12 @@ def _parse_int(value, field_label):
 def index():
     checking_accounts = CheckingAccount.query.order_by(CheckingAccount.id).all()
     credit_cards = CreditCard.query.order_by(CreditCard.id).all()
+    categories = Category.query.order_by(Category.id).all()
     return render_template(
         "settings.html",
         checking_accounts=checking_accounts,
         credit_cards=credit_cards,
+        categories=categories,
     )
 
 
@@ -188,6 +190,39 @@ def delete_credit_card(card_id):
         flash(blocker)
     else:
         db.session.delete(card)
+        db.session.commit()
+
+    return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/categories", methods=["POST"])
+@login_required
+def create_category():
+    try:
+        name = request.form.get("name", "").strip()
+        if not name:
+            raise ValueError("Name is required.")
+        if Category.query.filter_by(name=name).first() is not None:
+            raise ValueError("A category with that name already exists.")
+
+        db.session.add(Category(name=name))
+        db.session.commit()
+    except ValueError as exc:
+        flash(str(exc))
+
+    return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/categories/<int:category_id>/delete", methods=["POST"])
+@login_required
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+
+    blocker = category.deletion_blocker()
+    if blocker:
+        flash(blocker)
+    else:
+        db.session.delete(category)
         db.session.commit()
 
     return redirect(url_for("settings.index"))

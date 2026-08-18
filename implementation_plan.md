@@ -67,7 +67,7 @@ grouped at the bottom.
 - [x] View/edit checking accounts (add/edit/remove, starting balance,
       as_of_date)
 - [x] View/edit list of credit cards (add/edit/delete, set default)
-- [ ] View/edit list of `categories` (add new category; `None` and any
+- [x] View/edit list of `categories` (add new category; `None` and any
       category still referenced by a transaction/series cannot be deleted)
       — see specs.md § `categories`, "Needs/Wants/Savings and categories"
 

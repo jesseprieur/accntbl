@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.extensions import db
-from app.models import CheckingAccount, CreditCard, User
+from app.models import Category, CheckingAccount, CreditCard, User
 
 
 @pytest.fixture
@@ -369,3 +369,78 @@ def test_credit_card_settings_rejects_invalid_close_day(client, app):
 
     with app.app_context():
         assert CreditCard.query.first() is None
+
+
+def test_none_category_seeded_by_default(app):
+    with app.app_context():
+        categories = Category.query.all()
+        assert len(categories) == 1
+        assert categories[0].name == "None"
+
+
+def test_create_category(client, app):
+    response = client.post("/settings/categories", data={"name": "Groceries"})
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.filter_by(name="Groceries").one() is not None
+
+
+def test_create_category_rejects_duplicate_name(client, app):
+    client.post("/settings/categories", data={"name": "Groceries"})
+    client.post("/settings/categories", data={"name": "Groceries"})
+
+    with app.app_context():
+        assert Category.query.filter_by(name="Groceries").count() == 1
+
+
+def test_delete_none_category_is_blocked(client, app):
+    with app.app_context():
+        none_category = Category.query.filter_by(name="None").one()
+        none_id = none_category.id
+
+    response = client.post(f"/settings/categories/{none_id}/delete")
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.get(none_id) is not None
+
+
+def test_delete_category_referenced_by_transaction_is_blocked(client, app):
+    from app.models import Kind, Transaction
+
+    with app.app_context():
+        category = Category(name="Groceries")
+        db.session.add(category)
+        db.session.commit()
+        db.session.add(
+            Transaction(
+                name="Weekly shop",
+                kind=Kind.cash,
+                amount=Decimal("-50.00"),
+                date=dt.date(2026, 1, 5),
+                category_id=category.id,
+            )
+        )
+        db.session.commit()
+        category_id = category.id
+
+    response = client.post(f"/settings/categories/{category_id}/delete")
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.get(category_id) is not None
+
+
+def test_delete_unreferenced_category_removes_it(client, app):
+    with app.app_context():
+        category = Category(name="Groceries")
+        db.session.add(category)
+        db.session.commit()
+        category_id = category.id
+
+    response = client.post(f"/settings/categories/{category_id}/delete")
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.get(category_id) is None

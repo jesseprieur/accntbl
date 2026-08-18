@@ -8,10 +8,12 @@ import sqlalchemy.exc
 
 from app.models import (
     CadenceType,
+    Category,
     CheckingAccount,
     CreditCard,
     CreditDueOverride,
     Kind,
+    NeedsWantsSavings,
     OccurrenceStatus,
     RecurringSeries,
     Transaction,
@@ -231,6 +233,61 @@ def test_recurring_series_generated_transaction_is_linked_and_attached(app):
     assert fetched.recurring_series.name == "Paycheck"
     assert fetched.occurrence_status == OccurrenceStatus.attached
     assert series.transactions == [fetched]
+
+
+def test_transaction_and_series_default_to_none_category_and_need(app):
+    series = RecurringSeries(
+        name="Paycheck",
+        kind=Kind.cash,
+        amount="2000.00",
+        cadence_type=CadenceType.biweekly,
+        start_date=datetime.date(2026, 1, 1),
+    )
+    transaction = Transaction(
+        name="Groceries",
+        kind=Kind.cash,
+        amount="-75.25",
+        date=datetime.date(2026, 7, 19),
+    )
+    db.session.add_all([series, transaction])
+    db.session.commit()
+
+    none_category = Category.none_category()
+    assert series.category_id == none_category.id
+    assert series.needs_wants_savings == NeedsWantsSavings.need
+    assert transaction.category_id == none_category.id
+    assert transaction.needs_wants_savings == NeedsWantsSavings.need
+
+
+def test_category_deletion_blocker_blocks_none_category(app):
+    none_category = Category.none_category()
+    assert none_category.deletion_blocker() is not None
+
+
+def test_category_deletion_blocker_blocks_category_referenced_by_transaction(app):
+    category = Category(name="Groceries")
+    db.session.add(category)
+    db.session.flush()
+    db.session.add(
+        Transaction(
+            name="Weekly shop",
+            kind=Kind.cash,
+            amount="-50.00",
+            date=datetime.date(2026, 1, 5),
+            category_id=category.id,
+        )
+    )
+    db.session.commit()
+
+    assert category.deletion_blocker() is not None
+
+
+def test_category_deletion_blocker_allows_unreferenced_category(app):
+    category = Category(name="Groceries")
+    db.session.add(category)
+    db.session.commit()
+
+    assert category.deletion_blocker() is None
 
 
 def test_one_off_transaction_has_no_series(app):

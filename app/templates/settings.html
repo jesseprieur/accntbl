@@ -89,6 +89,34 @@
     </tbody>
   </table>
 
+  <h2 class="h5 mt-4">Categories</h2>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for category in categories %}
+        <tr>
+          <td>{{ category.name }}</td>
+          <td class="text-nowrap">
+            {% if category.name != "None" %}
+              <button type="submit" form="delete-category-{{ category.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
+            {% endif %}
+          </td>
+        </tr>
+        <form id="delete-category-{{ category.id }}" method="post" action="{{ url_for('settings.delete_category', category_id=category.id) }}"></form>
+      {% endfor %}
+      <tr>
+        <td><input type="text" form="create-category" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
+        <td><button type="submit" form="create-category" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
+      </tr>
+      <form id="create-category" method="post" action="{{ url_for('settings.create_category') }}"></form>
+    </tbody>
+  </table>
+
   <h2 class="h5 mt-4">Backup</h2>
   <div class="d-flex gap-2">
     <a href="{{ url_for('settings.download_backup') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Download backup</a>

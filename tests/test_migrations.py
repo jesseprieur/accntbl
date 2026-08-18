@@ -63,9 +63,10 @@ def test_db_downgrade_dash_one_with_separator_reverts_one_migration(app, runner)
         }
 
     # One step back from head only reverts the latest migration
-    # (add amount_logic), not every migration back to base.
+    # (add categories), not every migration back to base.
     assert "recurring_series" in actual_tables
-    assert "amount_logic" not in recurring_series_columns
+    assert "category_id" not in recurring_series_columns
+    assert "amount_logic" in recurring_series_columns
 
 
 def test_db_downgrade_to_base_reverts_all_tables(app, runner):
