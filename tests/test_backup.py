@@ -8,10 +8,12 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     CadenceType,
+    Category,
     CheckingAccount,
     CreditCard,
     CreditDueOverride,
     Kind,
+    NeedsWantsSavings,
     OccurrenceStatus,
     RecurringSeries,
     Transaction,
@@ -53,6 +55,10 @@ def _seed_sample_data():
     )
     db.session.add(override)
 
+    housing = Category(name="Housing")
+    db.session.add(housing)
+    db.session.flush()
+
     series = RecurringSeries(
         name="Rent",
         kind=Kind.cash,
@@ -60,6 +66,8 @@ def _seed_sample_data():
         cadence_type=CadenceType.monthly,
         start_date=dt.date(2026, 7, 1),
         end_date=None,
+        needs_wants_savings=NeedsWantsSavings.want,
+        category_id=housing.id,
     )
     db.session.add(series)
     db.session.flush()
@@ -74,6 +82,8 @@ def _seed_sample_data():
                 date=occurrence_date,
                 recurring_series_id=series.id,
                 occurrence_status=OccurrenceStatus.attached,
+                needs_wants_savings=series.needs_wants_savings,
+                category_id=series.category_id,
             )
         )
 
@@ -147,6 +157,16 @@ def test_export_produces_valid_complete_snapshot(app):
         assert len(snapshot["credit_cards"]) == 1
         assert len(snapshot["credit_due_overrides"]) == 1
         assert len(snapshot["recurring_series"]) == 1
+        # None (seeded) + Housing (created in _seed_sample_data)
+        exported_category_names = {row["name"] for row in snapshot["categories"]}
+        assert exported_category_names == {Category.NONE_NAME, "Housing"}
+
+        rent_series = snapshot["recurring_series"][0]
+        assert rent_series["needs_wants_savings"] == "want"
+        housing_id = next(
+            row["id"] for row in snapshot["categories"] if row["name"] == "Housing"
+        )
+        assert rent_series["category_id"] == housing_id
 
         exported_txn_statuses = {
             (row["name"], row.get("occurrence_status")) for row in snapshot["transactions"]
@@ -175,6 +195,7 @@ def test_import_round_trip_matches_original_data(app):
         CreditDueOverride.query.delete()
         CreditCard.query.delete()
         CheckingAccount.query.delete()
+        Category.query.delete()
         db.session.commit()
 
         restore_snapshot(snapshot)
@@ -192,8 +213,20 @@ def test_import_round_trip_matches_original_data(app):
         assert override.amount == Decimal("-300.00")
         assert override.credit_card_id == card.id
 
+        assert {c.name for c in Category.query.all()} == {Category.NONE_NAME, "Housing"}
+        housing = Category.query.filter_by(name="Housing").one()
+
         series = RecurringSeries.query.one()
         assert series.name == "Rent"
+        assert series.needs_wants_savings == NeedsWantsSavings.want
+        assert series.category_id == housing.id
+
+        restored_attached = Transaction.query.filter_by(
+            occurrence_status=OccurrenceStatus.attached
+        ).all()
+        assert restored_attached
+        assert all(t.category_id == housing.id for t in restored_attached)
+        assert all(t.needs_wants_savings == NeedsWantsSavings.want for t in restored_attached)
 
         detached = Transaction.query.filter_by(occurrence_status=OccurrenceStatus.detached).one()
         assert detached.date.isoformat() == "2026-08-01"

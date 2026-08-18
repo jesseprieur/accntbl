@@ -17,6 +17,7 @@ from flask import current_app
 
 from app.extensions import db
 from app.models import (
+    Category,
     CheckingAccount,
     CreditCard,
     CreditDueOverride,
@@ -33,6 +34,7 @@ _REQUIRED_LIST_KEYS = (
     "checking_accounts",
     "credit_cards",
     "credit_due_overrides",
+    "categories",
     "recurring_series",
     "transactions",
 )
@@ -102,6 +104,9 @@ def build_snapshot():
             _serialize_row(row)
             for row in CreditDueOverride.query.order_by(CreditDueOverride.id)
         ],
+        "categories": [
+            _serialize_row(row) for row in Category.query.order_by(Category.id)
+        ],
         "recurring_series": [
             _serialize_row(row)
             for row in RecurringSeries.query.order_by(RecurringSeries.id)
@@ -159,6 +164,7 @@ def restore_snapshot(data):
         CreditDueOverride.query.delete(synchronize_session=False)
         CreditCard.query.delete(synchronize_session=False)
         CheckingAccount.query.delete(synchronize_session=False)
+        Category.query.delete(synchronize_session=False)
 
         for row in data.get("checking_accounts", []):
             db.session.add(_deserialize_row(CheckingAccount, row))
@@ -166,6 +172,8 @@ def restore_snapshot(data):
             db.session.add(_deserialize_row(CreditCard, row))
         for row in data.get("credit_due_overrides", []):
             db.session.add(_deserialize_row(CreditDueOverride, row))
+        for row in data.get("categories", []):
+            db.session.add(_deserialize_row(Category, row))
 
         series_list = [
             _deserialize_row(RecurringSeries, row)
@@ -195,6 +203,8 @@ def restore_snapshot(data):
                         recurring_series_id=series.id,
                         occurrence_status=OccurrenceStatus.attached,
                         credit_card_id=series.credit_card_id,
+                        needs_wants_savings=series.needs_wants_savings,
+                        category_id=series.category_id,
                     )
                 )
 

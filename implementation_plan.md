@@ -149,7 +149,7 @@ grouped at the bottom.
       (export → wipe → import → data matches); schema_version mismatch
       rejected; `skipped` occurrences survive round-trip; import failure
       leaves DB unchanged (rollback)
-- [ ] Extend export/import to include `categories`, and the
+- [x] Extend export/import to include `categories`, and the
       `needs_wants_savings`/`category_id` fields on `recurring_series` and
       `transactions` — see specs.md § "Backup / import-export"
 
