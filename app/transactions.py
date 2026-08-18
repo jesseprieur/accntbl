@@ -244,6 +244,14 @@ def window():
                 if row.transaction is not None and row.transaction.occurrence_status
                 else None
             ),
+            "needs_wants_savings": (
+                row.transaction.needs_wants_savings.value
+                if row.transaction is not None
+                else None
+            ),
+            "category_id": (
+                row.transaction.category_id if row.transaction is not None else None
+            ),
             "running_total": str(row.running_total),
             "is_negative": row.is_negative,
             "is_virtual": row.transaction is None,
@@ -271,6 +279,8 @@ def window():
                 "credit_card_id": t.credit_card_id,
                 "recurring_series_id": t.recurring_series_id,
                 "occurrence_status": t.occurrence_status.value,
+                "needs_wants_savings": t.needs_wants_savings.value,
+                "category_id": t.category_id,
                 "running_total": None,
                 "is_negative": False,
                 "is_virtual": False,
@@ -311,6 +321,13 @@ def create():
         credit_card_id = _resolve_credit_card_id(
             kind, payload.get("credit_card_id"), None
         )
+
+        needs_wants_savings = _parse_enum_field(
+            NeedsWantsSavings,
+            payload.get("needs_wants_savings", NeedsWantsSavings.need.value),
+            "Needs/Wants/Savings",
+        )
+        category_id = _resolve_category_id(payload.get("category_id"), None)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -321,6 +338,8 @@ def create():
         date=txn_date,
         notes=notes,
         credit_card_id=credit_card_id,
+        needs_wants_savings=needs_wants_savings,
+        category_id=category_id,
     )
     db.session.add(transaction)
     db.session.commit()
@@ -336,6 +355,8 @@ def create():
             "credit_card_id": transaction.credit_card_id,
             "recurring_series_id": transaction.recurring_series_id,
             "occurrence_status": None,
+            "needs_wants_savings": transaction.needs_wants_savings.value,
+            "category_id": transaction.category_id,
         }
     ), 201
 
@@ -818,6 +839,16 @@ def update(transaction_id):
             transaction.credit_card_id = _resolve_credit_card_id(
                 transaction.kind, payload.get("credit_card_id"), transaction.credit_card_id
             )
+
+        if "needs_wants_savings" in payload:
+            transaction.needs_wants_savings = _parse_enum_field(
+                NeedsWantsSavings, payload["needs_wants_savings"], "Needs/Wants/Savings"
+            )
+
+        if "category_id" in payload:
+            transaction.category_id = _resolve_category_id(
+                payload.get("category_id"), transaction.category_id
+            )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -844,6 +875,8 @@ def update(transaction_id):
                 if transaction.occurrence_status
                 else None
             ),
+            "needs_wants_savings": transaction.needs_wants_savings.value,
+            "category_id": transaction.category_id,
         }
     )
 

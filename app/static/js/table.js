@@ -6,10 +6,14 @@
   const today = DateUtils.today();
   const windowUrl = container.dataset.windowUrl;
   const defaultCreditCardId = container.dataset.defaultCreditCardId || "";
+  const defaultCategoryId = container.dataset.defaultCategoryId || "";
   const showSkippedToggle = document.getElementById("show-skipped-toggle");
 
   const creditCardsDataEl = document.getElementById("credit-cards-data");
   const creditCards = creditCardsDataEl ? JSON.parse(creditCardsDataEl.textContent) : [];
+
+  const categoriesDataEl = document.getElementById("categories-data");
+  const categories = categoriesDataEl ? JSON.parse(categoriesDataEl.textContent) : [];
 
   function cardName(cardId) {
     const card = creditCards.find((c) => String(c.id) === String(cardId));
@@ -22,6 +26,16 @@
       .map((card) => {
         const value = String(card.id);
         return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(card.name)}</option>`;
+      })
+      .join("");
+  }
+
+  function categoryOptionsHtml(selectedId) {
+    const selected = selectedId == null ? defaultCategoryId : String(selectedId);
+    return categories
+      .map((category) => {
+        const value = String(category.id);
+        return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(category.name)}</option>`;
       })
       .join("");
   }
@@ -162,6 +176,14 @@
       <td>
         <input type="text" class="form-control form-control-sm border-0" data-field="name" value="${Escape.html(row.name)}" required>
         <input type="text" class="form-control form-control-sm border-0 mt-1" data-field="notes" placeholder="Notes" value="${Escape.html(row.notes || "")}">
+        <select class="form-select form-select-sm border-0 mt-1" data-field="needs_wants_savings">
+          <option value="need" ${row.needs_wants_savings === "need" ? "selected" : ""}>Need</option>
+          <option value="want" ${row.needs_wants_savings === "want" ? "selected" : ""}>Want</option>
+          <option value="savings" ${row.needs_wants_savings === "savings" ? "selected" : ""}>Savings</option>
+        </select>
+        <select class="form-select form-select-sm border-0 mt-1" data-field="category_id">
+          ${categoryOptionsHtml(row.category_id)}
+        </select>
       </td>
       <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${Escape.html(formatAmount(row.cash_amount))}"></td>
       <td>
@@ -248,6 +270,8 @@
       name: values.name,
       date: values.date,
       notes: values.notes || null,
+      needs_wants_savings: values.needs_wants_savings,
+      category_id: values.category_id,
     };
     if (values.cash_amount) {
       body.kind = "cash";
@@ -627,6 +651,8 @@
         kind,
         amount: formData.get("amount"),
         notes: formData.get("notes") || null,
+        needs_wants_savings: formData.get("needs_wants_savings"),
+        category_id: formData.get("category_id"),
       };
       if (kind === "credit") {
         body.credit_card_id = formData.get("credit_card_id");

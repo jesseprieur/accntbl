@@ -114,7 +114,7 @@ grouped at the bottom.
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form), with credit card selector when
       kind=credit
-- [ ] needsWantsSavings + category fields on the inline row edit and the
+- [x] needsWantsSavings + category fields on the inline row edit and the
       add-one-off-transaction form (default `Need` / `None`) — see specs.md
       § "Needs/Wants/Savings and categories"
 

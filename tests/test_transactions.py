@@ -13,6 +13,7 @@ from app.models import (
     CreditCard,
     CreditDueOverride,
     Kind,
+    NeedsWantsSavings,
     OccurrenceStatus,
     RecurringSeries,
     Transaction,
@@ -677,6 +678,106 @@ def test_create_one_off_transaction(client, app):
         assert created.date == dt.date(2026, 7, 15)
         assert created.notes == "monthly"
         assert created.recurring_series_id is None
+
+
+def test_create_one_off_transaction_defaults_needs_wants_savings_and_category(client, app):
+    response = client.post(
+        "/transactions",
+        json={"name": "Rent", "date": "2026-07-15", "kind": "cash", "amount": "-400.00"},
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["needs_wants_savings"] == "need"
+
+    with app.app_context():
+        created = Transaction.query.get(data["id"])
+        assert created.needs_wants_savings == NeedsWantsSavings.need
+        assert created.category_id == Category.default_category_id()
+        assert data["category_id"] == Category.default_category_id()
+
+
+def test_create_one_off_transaction_sets_needs_wants_savings_and_category(client, app):
+    with app.app_context():
+        other_category = Category(name="Subscriptions")
+        db.session.add(other_category)
+        db.session.commit()
+        other_category_id = other_category.id
+
+    response = client.post(
+        "/transactions",
+        json={
+            "name": "Gym",
+            "date": "2026-07-15",
+            "kind": "cash",
+            "amount": "-50.00",
+            "needs_wants_savings": "want",
+            "category_id": other_category_id,
+        },
+    )
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["needs_wants_savings"] == "want"
+    assert data["category_id"] == other_category_id
+
+    with app.app_context():
+        created = Transaction.query.get(data["id"])
+        assert created.needs_wants_savings == NeedsWantsSavings.want
+        assert created.category_id == other_category_id
+
+
+def test_update_one_off_transaction_sets_needs_wants_savings_and_category(client, app):
+    with app.app_context():
+        other_category = Category(name="Subscriptions")
+        db.session.add(other_category)
+        txn = Transaction(name="Rent", kind=Kind.cash, amount=Decimal("-400.00"), date=dt.date(2026, 7, 15))
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+        other_category_id = other_category.id
+
+    response = client.patch(
+        f"/transactions/{txn_id}",
+        json={"needs_wants_savings": "savings", "category_id": other_category_id},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["needs_wants_savings"] == "savings"
+    assert data["category_id"] == other_category_id
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated.needs_wants_savings == NeedsWantsSavings.savings
+        assert updated.category_id == other_category_id
+
+
+def test_window_returns_needs_wants_savings_and_category(client, app):
+    with app.app_context():
+        other_category = Category(name="Subscriptions")
+        db.session.add(other_category)
+        db.session.commit()
+        other_category_id = other_category.id
+
+    client.post(
+        "/transactions",
+        json={
+            "name": "Gym",
+            "date": "2026-07-15",
+            "kind": "cash",
+            "amount": "-50.00",
+            "needs_wants_savings": "want",
+            "category_id": other_category_id,
+        },
+    )
+
+    response = client.get(
+        "/transactions/window",
+        query_string={"start": "2026-07-01", "end": "2026-07-31"},
+    )
+    data = response.get_json()
+    non_month_end_rows = [row for row in data["rows"] if not row["is_month_end"]]
+    assert len(non_month_end_rows) == 1
+    assert non_month_end_rows[0]["needs_wants_savings"] == "want"
+    assert non_month_end_rows[0]["category_id"] == other_category_id
 
 
 def test_create_appears_in_window_with_running_total(client, app):
