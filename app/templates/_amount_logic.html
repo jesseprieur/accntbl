@@ -1,32 +1,30 @@
-{% macro amount_field(prefix) %}
+{% macro amount_field(prefix, card_html="") %}
   <div data-amount-logic-root data-prefix="{{ prefix }}">
     <div class="mb-2">
-      <label class="form-label d-block">Amount mode</label>
       <div class="btn-group" role="group" aria-label="Amount mode">
-        <input type="radio" class="btn-check" name="{{ prefix }}-amount-mode" id="{{ prefix }}-mode-basic" value="basic" data-amount-logic-mode checked>
+        <input type="radio" class="btn-check" name="{{ prefix }}-amount-mode" id="{{ prefix }}-mode-basic" value="basic" data-amount-logic-select checked>
         <label class="btn btn-outline-secondary btn-sm" for="{{ prefix }}-mode-basic">Basic</label>
-        <input type="radio" class="btn-check" name="{{ prefix }}-amount-mode" id="{{ prefix }}-mode-advanced" value="advanced" data-amount-logic-mode>
-        <label class="btn btn-outline-secondary btn-sm" for="{{ prefix }}-mode-advanced">Advanced</label>
+        <input type="radio" class="btn-check" name="{{ prefix }}-amount-mode" id="{{ prefix }}-mode-conditional" value="conditional" data-amount-logic-select>
+        <label class="btn btn-outline-secondary btn-sm" for="{{ prefix }}-mode-conditional">Date-based</label>
+        <input type="radio" class="btn-check" name="{{ prefix }}-amount-mode" id="{{ prefix }}-mode-escalating" value="escalating" data-amount-logic-select>
+        <label class="btn btn-outline-secondary btn-sm" for="{{ prefix }}-mode-escalating">+/-</label>
       </div>
     </div>
 
-    <div class="mb-2">
-      <label class="form-label">Amount</label>
-      <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
-      <p class="small text-muted mb-0 d-none" data-amount-logic-basic-hint>Default/Starting amount</p>
+    <div class="mb-2 d-flex gap-2 align-items-start">
+      {% if caller %}{{ caller() }}{% endif %}
+      <div class="flex-fill">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">$</span>
+          <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
+        </div>
+        <p class="small text-muted mb-0 d-none" data-amount-logic-basic-hint>Default/Starting amount</p>
+      </div>
     </div>
+
+    {{ card_html }}
 
     <div class="d-none" data-amount-logic-advanced>
-      <div class="mb-2">
-        <label class="form-label d-block">Amount logic</label>
-        <div class="btn-group" role="group" aria-label="Amount logic type">
-          <input type="radio" class="btn-check" name="{{ prefix }}-amount-logic-type" id="{{ prefix }}-logic-conditional" value="conditional" data-amount-logic-type checked>
-          <label class="btn btn-outline-secondary btn-sm" for="{{ prefix }}-logic-conditional">Date-based</label>
-          <input type="radio" class="btn-check" name="{{ prefix }}-amount-logic-type" id="{{ prefix }}-logic-escalating" value="escalating" data-amount-logic-type>
-          <label class="btn btn-outline-secondary btn-sm" for="{{ prefix }}-logic-escalating">+/-</label>
-        </div>
-      </div>
-
       <div class="d-none" data-amount-logic-panel="conditional">
         <p class="small text-muted mb-1">Checked top to bottom. On no match, use above Amount.</p>
         <template data-amount-logic-rule-template>

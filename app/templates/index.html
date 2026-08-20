@@ -25,41 +25,30 @@
           </div>
           <div class="modal-body">
             <div class="text-danger small mb-2 d-none" id="add-transaction-error"></div>
-            <div class="mb-2">
-              <label class="form-label">Name</label>
-              <input type="text" class="form-control form-control-sm" name="name" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Date</label>
+            <div class="mb-2 d-flex gap-2">
+              <input type="text" class="form-control form-control-sm" name="name" placeholder="Name" required>
               <input type="date" class="form-control form-control-sm" name="date" required>
             </div>
-            <div class="mb-2">
-              <label class="form-label d-block">Kind</label>
+            <div class="mb-2 d-flex gap-2">
               <div class="btn-group" role="group" aria-label="Kind">
                 <input type="radio" class="btn-check" name="kind" id="add-transaction-kind-cash" value="cash" checked>
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-kind-cash">Cash</label>
                 <input type="radio" class="btn-check" name="kind" id="add-transaction-kind-credit" value="credit">
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-kind-credit">Credit</label>
               </div>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
+              </div>
             </div>
             <div class="mb-2 d-none" id="add-transaction-card-field">
-              <label class="form-label">Credit card</label>
               <select class="form-select form-select-sm" name="credit_card_id" id="add-transaction-card-select">
                 {% for card in credit_cards %}
                   <option value="{{ card.id }}" {% if card.id == default_credit_card_id %}selected{% endif %}>{{ card.name }}</option>
                 {% endfor %}
               </select>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Amount</label>
-              <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Notes</label>
-              <input type="text" class="form-control form-control-sm" name="notes">
-            </div>
-            <div class="mb-2">
-              <label class="form-label d-block">Needs / Wants / Savings</label>
+            <div class="mb-2 d-flex gap-2">
               <div class="btn-group" role="group" aria-label="Needs/Wants/Savings">
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="add-transaction-nws-need" value="need" checked>
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-nws-need">Need</label>
@@ -68,14 +57,14 @@
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="add-transaction-nws-savings" value="savings">
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-nws-savings">Savings</label>
               </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Category</label>
               <select class="form-select form-select-sm" name="category_id">
                 {% for category in categories %}
                   <option value="{{ category.id }}" {% if category.id == default_category_id %}selected{% endif %}>{{ category.name }}</option>
                 {% endfor %}
               </select>
+            </div>
+            <div class="mb-2">
+              <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes">
             </div>
           </div>
           <div class="modal-footer">

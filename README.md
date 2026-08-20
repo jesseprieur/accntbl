@@ -23,8 +23,13 @@ close date, which *does* hit your checking balance on its due date.
   investment accounts are out of scope — this tool only forecasts checking.)
 - **Transactions table**: every row has a name, date, an optional Cash +/-
   amount (affects your running balance), an optional Credit +/- amount
-  (logged against the credit card, doesn't affect balance directly), and
-  optional notes.
+  (logged against the credit card, doesn't affect balance directly), a
+  Needs/Wants/Savings classification, a category, and optional notes.
+- **Needs/Wants/Savings and categories**: every transaction and recurring
+  series carries a fixed Need/Want/Savings tag (defaults to Need) plus a
+  user-managed category label (defaults to `None`; add more on the Settings
+  page). Both are classification/reporting only — they don't affect the
+  running total or any other math.
 - **Recurring items**: create a series (on the dedicated Recurring Series
   page) with a cadence (weekly, biweekly, monthly, semi-monthly, quarterly,
   yearly, or a custom "every N days/weeks/months") and it populates the
@@ -33,7 +38,14 @@ close date, which *does* hit your checking balance on its due date.
   Un-skip). Editing a row still tied to the series is a normal inline
   edit — saving it detaches just that occurrence (it becomes a standalone
   transaction, editable/deletable on its own from then on) while the rest
-  of the series is unaffected; cancelling the edit leaves it attached.
+  of the series is unaffected; cancelling the edit leaves it attached. Each
+  series can use a plain fixed amount, or switch to **Advanced** amount
+  logic — either a date-based conditional (a top-to-bottom list of "on/after
+  this date, use this amount" rules) or an escalating amount that increases
+  or decreases by a fixed value or percentage each occurrence. The series
+  list also shows a **Per Month** column normalizing every cadence to a
+  monthly rate, for comparing e.g. a weekly and a yearly expense at a
+  glance.
 - **Credit cards**: manage one or more cards on the Settings page, each with
   its own statement-close day, payment-due offset, and starting balance;
   exactly one is marked the default. When logging a Credit +/- transaction
@@ -123,13 +135,16 @@ page at `/settings`.)
 ## Usage
 
 1. Log in with the single configured user.
-2. Visit **Settings** to set up your checking account(s) starting balance
-   and your credit card(s) (name, statement close day, payment due offset,
-   starting balance, which one is the default).
-3. On the main table, add one-off transactions. Use the **Recurring Series**
-   page to add/edit/delete recurring series (name, kind, amount, cadence,
-   start date, optional end date). See "Key ideas" above for how
-   editing/detaching a recurring row on the main table works.
+2. Visit **Settings** to set up your checking account(s) starting balance,
+   your credit card(s) (name, statement close day, payment due offset,
+   starting balance, which one is the default), and any custom categories
+   you want beyond the default `None`.
+3. On the main table, add one-off transactions, each with a
+   Needs/Wants/Savings tag and category. Use the **Recurring Series** page
+   to add/edit/delete recurring series (name, kind, amount or advanced
+   amount logic, cadence, start date, optional end date, Needs/Wants/Savings,
+   category). See "Key ideas" above for how editing/detaching a recurring
+   row on the main table works.
 4. Scroll down to project up to a year forward; scroll up to review history.
 5. Watch for highlighted rows — that's when your projected balance goes
    negative.

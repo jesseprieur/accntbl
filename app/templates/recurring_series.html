@@ -40,30 +40,11 @@
           </div>
           <div class="modal-body">
             <div class="text-danger small mb-2 d-none" id="add-series-error"></div>
-            <div class="mb-2">
-              <label class="form-label">Name</label>
-              <input type="text" class="form-control form-control-sm" name="name" required>
+            <div class="mb-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <input type="text" class="form-control form-control-sm" name="name" placeholder="Name" required>
+              <input type="date" class="form-control form-control-sm" name="start_date" required>
             </div>
-            <div class="mb-2">
-              <label class="form-label d-block">Kind</label>
-              <div class="btn-group" role="group" aria-label="Kind">
-                <input type="radio" class="btn-check" name="kind" id="add-series-kind-cash" value="cash" checked>
-                <label class="btn btn-outline-primary btn-sm" for="add-series-kind-cash">Cash</label>
-                <input type="radio" class="btn-check" name="kind" id="add-series-kind-credit" value="credit">
-                <label class="btn btn-outline-primary btn-sm" for="add-series-kind-credit">Credit</label>
-              </div>
-            </div>
-            <div class="mb-2 d-none" id="add-series-card-field">
-              <label class="form-label">Credit card</label>
-              <select class="form-select form-select-sm" name="credit_card_id" id="add-series-card-select">
-                {% for card in credit_cards %}
-                  <option value="{{ card.id }}" {% if card.id == default_credit_card_id %}selected{% endif %}>{{ card.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            {{ amount_logic.amount_field("add-series") }}
-            <div class="mb-2">
-              <label class="form-label">Cadence</label>
+            <div class="mb-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
               <select class="form-select form-select-sm" name="cadence_type" id="add-series-cadence" required>
                 <option value="weekly">Weekly</option>
                 <option value="biweekly">Biweekly</option>
@@ -73,6 +54,7 @@
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom</option>
               </select>
+              <input type="text" class="form-control form-control-sm" name="end_date" placeholder="Optional End Date" onfocus="(this.type='date')" onblur="if(!this.value) this.type='text'">
             </div>
             <div class="mb-2 d-none" id="add-series-custom-fields">
               <label class="form-label">Custom interval</label>
@@ -85,20 +67,24 @@
                 </select>
               </div>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Start date</label>
-              <input type="date" class="form-control form-control-sm" name="start_date" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">End date (optional)</label>
-              <input type="date" class="form-control form-control-sm" name="end_date">
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Notes</label>
-              <input type="text" class="form-control form-control-sm" name="notes">
-            </div>
-            <div class="mb-2">
-              <label class="form-label d-block">Needs / Wants / Savings</label>
+            {% set add_series_card_html %}
+              <div class="mb-2 d-none" id="add-series-card-field">
+                <select class="form-select form-select-sm" name="credit_card_id" id="add-series-card-select">
+                  {% for card in credit_cards %}
+                    <option value="{{ card.id }}" {% if card.id == default_credit_card_id %}selected{% endif %}>{{ card.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endset %}
+            {% call amount_logic.amount_field("add-series", add_series_card_html) %}
+              <div class="btn-group" role="group" aria-label="Kind">
+                <input type="radio" class="btn-check" name="kind" id="add-series-kind-cash" value="cash" checked>
+                <label class="btn btn-outline-primary btn-sm" for="add-series-kind-cash">Cash</label>
+                <input type="radio" class="btn-check" name="kind" id="add-series-kind-credit" value="credit">
+                <label class="btn btn-outline-primary btn-sm" for="add-series-kind-credit">Credit</label>
+              </div>
+            {% endcall %}
+            <div class="mb-2 d-flex gap-2">
               <div class="btn-group" role="group" aria-label="Needs/Wants/Savings">
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="add-series-nws-need" value="need" checked>
                 <label class="btn btn-outline-primary btn-sm" for="add-series-nws-need">Need</label>
@@ -107,14 +93,14 @@
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="add-series-nws-savings" value="savings">
                 <label class="btn btn-outline-primary btn-sm" for="add-series-nws-savings">Savings</label>
               </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Category</label>
               <select class="form-select form-select-sm" name="category_id">
                 {% for category in categories %}
                   <option value="{{ category.id }}" {% if category.id == default_category_id %}selected{% endif %}>{{ category.name }}</option>
                 {% endfor %}
               </select>
+            </div>
+            <div class="mb-2">
+              <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes">
             </div>
           </div>
           <div class="modal-footer">
@@ -138,30 +124,11 @@
           <div class="modal-body">
             <div class="text-danger small mb-2 d-none" id="edit-series-error"></div>
             <p class="small text-muted">Updates the series and applies to all occurrences still attached</p>
-            <div class="mb-2">
-              <label class="form-label">Name</label>
-              <input type="text" class="form-control form-control-sm" name="name" required>
+            <div class="mb-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <input type="text" class="form-control form-control-sm" name="name" placeholder="Name" required>
+              <input type="date" class="form-control form-control-sm" name="start_date" required>
             </div>
-            <div class="mb-2">
-              <label class="form-label d-block">Kind</label>
-              <div class="btn-group" role="group" aria-label="Kind">
-                <input type="radio" class="btn-check" name="kind" id="edit-series-kind-cash" value="cash">
-                <label class="btn btn-outline-primary btn-sm" for="edit-series-kind-cash">Cash</label>
-                <input type="radio" class="btn-check" name="kind" id="edit-series-kind-credit" value="credit">
-                <label class="btn btn-outline-primary btn-sm" for="edit-series-kind-credit">Credit</label>
-              </div>
-            </div>
-            <div class="mb-2 d-none" id="edit-series-card-field">
-              <label class="form-label">Credit card</label>
-              <select class="form-select form-select-sm" name="credit_card_id" id="edit-series-card-select">
-                {% for card in credit_cards %}
-                  <option value="{{ card.id }}">{{ card.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            {{ amount_logic.amount_field("edit-series") }}
-            <div class="mb-2">
-              <label class="form-label">Cadence</label>
+            <div class="mb-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
               <select class="form-select form-select-sm" name="cadence_type" id="edit-series-cadence" required>
                 <option value="weekly">Weekly</option>
                 <option value="biweekly">Biweekly</option>
@@ -171,6 +138,7 @@
                 <option value="yearly">Yearly</option>
                 <option value="custom">Custom</option>
               </select>
+              <input type="text" class="form-control form-control-sm" name="end_date" placeholder="Optional End Date" onfocus="(this.type='date')" onblur="if(!this.value) this.type='text'">
             </div>
             <div class="mb-2 d-none" id="edit-series-custom-fields">
               <label class="form-label">Custom interval</label>
@@ -183,20 +151,24 @@
                 </select>
               </div>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Start date</label>
-              <input type="date" class="form-control form-control-sm" name="start_date" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">End date (optional)</label>
-              <input type="date" class="form-control form-control-sm" name="end_date">
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Notes</label>
-              <input type="text" class="form-control form-control-sm" name="notes">
-            </div>
-            <div class="mb-2">
-              <label class="form-label d-block">Needs / Wants / Savings</label>
+            {% set edit_series_card_html %}
+              <div class="mb-2 d-none" id="edit-series-card-field">
+                <select class="form-select form-select-sm" name="credit_card_id" id="edit-series-card-select">
+                  {% for card in credit_cards %}
+                    <option value="{{ card.id }}">{{ card.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endset %}
+            {% call amount_logic.amount_field("edit-series", edit_series_card_html) %}
+              <div class="btn-group" role="group" aria-label="Kind">
+                <input type="radio" class="btn-check" name="kind" id="edit-series-kind-cash" value="cash">
+                <label class="btn btn-outline-primary btn-sm" for="edit-series-kind-cash">Cash</label>
+                <input type="radio" class="btn-check" name="kind" id="edit-series-kind-credit" value="credit">
+                <label class="btn btn-outline-primary btn-sm" for="edit-series-kind-credit">Credit</label>
+              </div>
+            {% endcall %}
+            <div class="mb-2 d-flex gap-2">
               <div class="btn-group" role="group" aria-label="Needs/Wants/Savings">
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-series-nws-need" value="need">
                 <label class="btn btn-outline-primary btn-sm" for="edit-series-nws-need">Need</label>
@@ -205,14 +177,14 @@
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-series-nws-savings" value="savings">
                 <label class="btn btn-outline-primary btn-sm" for="edit-series-nws-savings">Savings</label>
               </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Category</label>
               <select class="form-select form-select-sm" name="category_id">
                 {% for category in categories %}
                   <option value="{{ category.id }}">{{ category.name }}</option>
                 {% endfor %}
               </select>
+            </div>
+            <div class="mb-2">
+              <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes">
             </div>
             <hr>
             <div class="mb-2">

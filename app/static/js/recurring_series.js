@@ -56,10 +56,9 @@
   function initAmountLogicPanel(root) {
     if (!root) return null;
 
-    const modeRadios = root.querySelectorAll("[data-amount-logic-mode]");
-    const advancedSection = root.querySelector("[data-amount-logic-advanced]");
+    const selectionRadios = root.querySelectorAll("[data-amount-logic-select]");
+    const advancedSections = root.querySelectorAll("[data-amount-logic-advanced]");
     const basicHint = root.querySelector("[data-amount-logic-basic-hint]");
-    const typeRadios = root.querySelectorAll("[data-amount-logic-type]");
     const panels = root.querySelectorAll("[data-amount-logic-panel]");
     const rulesContainer = root.querySelector("[data-amount-logic-rules]");
     const ruleTemplate = root.querySelector("[data-amount-logic-rule-template]");
@@ -68,13 +67,8 @@
     const escalationAdjustmentSelect = root.querySelector('[data-amount-logic-field="adjustment_type"]');
 
     function selectedMode() {
-      const checked = root.querySelector("[data-amount-logic-mode]:checked");
+      const checked = root.querySelector("[data-amount-logic-select]:checked");
       return checked ? checked.value : "basic";
-    }
-
-    function selectedType() {
-      const checked = root.querySelector("[data-amount-logic-type]:checked");
-      return checked ? checked.value : "conditional";
     }
 
     function showPanelFor(type) {
@@ -84,14 +78,13 @@
     }
 
     function showAdvancedFor(mode) {
-      const isAdvanced = mode === "advanced";
-      if (advancedSection) advancedSection.classList.toggle("d-none", !isAdvanced);
+      const isAdvanced = mode !== "basic";
+      advancedSections.forEach((section) => section.classList.toggle("d-none", !isAdvanced));
       if (basicHint) basicHint.classList.toggle("d-none", !isAdvanced);
-      if (isAdvanced) showPanelFor(selectedType());
+      if (isAdvanced) showPanelFor(mode);
     }
 
-    modeRadios.forEach((radio) => radio.addEventListener("change", () => showAdvancedFor(selectedMode())));
-    typeRadios.forEach((radio) => radio.addEventListener("change", () => showPanelFor(selectedType())));
+    selectionRadios.forEach((radio) => radio.addEventListener("change", () => showAdvancedFor(selectedMode())));
 
     function addRuleRow(rule) {
       if (!ruleTemplate || !rulesContainer) return;
@@ -121,8 +114,7 @@
     }
 
     function reset() {
-      root.querySelector('[data-amount-logic-mode][value="basic"]').checked = true;
-      root.querySelector('[data-amount-logic-type][value="conditional"]').checked = true;
+      root.querySelector('[data-amount-logic-select][value="basic"]').checked = true;
       showAdvancedFor("basic");
       if (rulesContainer) rulesContainer.innerHTML = "";
       if (escalationValueInput) escalationValueInput.value = "";
@@ -133,22 +125,20 @@
       reset();
       if (!amountLogic) return;
       if (amountLogic.type === "conditional") {
-        root.querySelector('[data-amount-logic-mode][value="advanced"]').checked = true;
-        root.querySelector('[data-amount-logic-type][value="conditional"]').checked = true;
-        showAdvancedFor("advanced");
+        root.querySelector('[data-amount-logic-select][value="conditional"]').checked = true;
+        showAdvancedFor("conditional");
         (amountLogic.rules || []).forEach((rule) => addRuleRow(rule));
       } else if (amountLogic.type === "escalating") {
-        root.querySelector('[data-amount-logic-mode][value="advanced"]').checked = true;
-        root.querySelector('[data-amount-logic-type][value="escalating"]').checked = true;
-        showAdvancedFor("advanced");
+        root.querySelector('[data-amount-logic-select][value="escalating"]').checked = true;
+        showAdvancedFor("escalating");
         if (escalationValueInput) escalationValueInput.value = amountLogic.value ?? "";
         if (escalationAdjustmentSelect) escalationAdjustmentSelect.value = amountLogic.adjustment_type || "amount";
       }
     }
 
     function serialize() {
-      if (selectedMode() !== "advanced") return null;
-      const type = selectedType();
+      const type = selectedMode();
+      if (type === "basic") return null;
       if (type === "conditional") {
         const rules = Array.from(rulesContainer.querySelectorAll("[data-amount-logic-rule-row]")).map((row) => ({
           until_month: row.querySelector('[data-amount-logic-field="until_month"]').value,
