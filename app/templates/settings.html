@@ -102,9 +102,7 @@
         <tr>
           <td>{{ category.name }}</td>
           <td class="text-nowrap">
-            {% if category.name != "None" %}
-              <button type="submit" form="delete-category-{{ category.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
-            {% endif %}
+            <button type="submit" form="delete-category-{{ category.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
           </td>
         </tr>
         <form id="delete-category-{{ category.id }}" method="post" action="{{ url_for('settings.delete_category', category_id=category.id) }}"></form>

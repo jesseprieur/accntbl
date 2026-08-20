@@ -2,7 +2,6 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import event
 
 from app.extensions import db
 
@@ -111,30 +110,13 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
 
-    NONE_NAME = "None"
-
-    @classmethod
-    def none_category(cls):
-        return cls.query.filter_by(name=cls.NONE_NAME).first()
-
-    @classmethod
-    def default_category_id(cls):
-        """Python-side default for `category_id` columns — the seeded
-        `None` category's id, resolved lazily so it works regardless of
-        insertion order/id in a given database."""
-        none_category = cls.none_category()
-        return none_category.id if none_category else None
-
     def deletion_blocker(self):
         """Return a reason this category can't be deleted, or None if it can.
 
         Mirrors CreditCard.deletion_blocker (see specs.md § `categories`):
-        the seeded `None` row is the permanent fallback default and any
-        category still referenced by a transaction/series must be
-        reassigned first.
+        any category still referenced by a transaction/series must be
+        reassigned (or unset) first.
         """
-        if self.name == self.NONE_NAME:
-            return "The None category is the default fallback and cannot be deleted."
         if Transaction.query.filter_by(category_id=self.id).count() > 0 or (
             RecurringSeries.query.filter_by(category_id=self.id).count() > 0
         ):
@@ -143,15 +125,6 @@ class Category(db.Model):
                 "transactions or recurring series. Reassign them first."
             )
         return None
-
-
-@event.listens_for(Category.__table__, "after_create")
-def _seed_none_category(target, connection, **kwargs):
-    """Seed the `None` category whenever the table is freshly created via
-    `db.create_all()` (dev/test setup) — Alembic migrations seed it via
-    their own explicit `bulk_insert` instead, since `op.create_table` builds
-    an ad-hoc table object that doesn't carry this event listener."""
-    connection.execute(target.insert().values(name=Category.NONE_NAME))
 
 
 class CreditDueOverride(db.Model):
@@ -194,8 +167,7 @@ class RecurringSeries(db.Model):
     category_id = db.Column(
         db.Integer,
         db.ForeignKey("categories.id"),
-        nullable=False,
-        default=Category.default_category_id,
+        nullable=True,
     )
 
     transactions = db.relationship("Transaction", back_populates="recurring_series")
@@ -227,8 +199,7 @@ class Transaction(db.Model):
     category_id = db.Column(
         db.Integer,
         db.ForeignKey("categories.id"),
-        nullable=False,
-        default=Category.default_category_id,
+        nullable=True,
     )
 
     recurring_series = db.relationship("RecurringSeries", back_populates="transactions")

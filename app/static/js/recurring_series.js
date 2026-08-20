@@ -331,9 +331,7 @@
           editSeriesForm.elements["credit_card_id"].value = data.credit_card_id;
         }
         editSeriesForm.elements["needs_wants_savings"].value = data.needs_wants_savings;
-        if (data.category_id != null) {
-          editSeriesForm.elements["category_id"].value = data.category_id;
-        }
+        editSeriesForm.elements["category_id"].value = data.category_id != null ? data.category_id : "";
         editSeriesForm.elements["save_mode"].value = "all";
         editSeriesForm.elements["effective_date"].value = "";
         if (editAmountLogic) editAmountLogic.populate(data.amount_logic);

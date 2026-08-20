@@ -67,7 +67,7 @@ grouped at the bottom.
 - [x] View/edit checking accounts (add/edit/remove, starting balance,
       as_of_date)
 - [x] View/edit list of credit cards (add/edit/delete, set default)
-- [ ] View/edit list of `categories` (add new category; starts empty, no
+- [x] View/edit list of `categories` (add new category; starts empty, no
       seeded row; any category still referenced by a transaction/series
       cannot be deleted) — see specs.md § `categories`, "Needs/Wants/Savings
       and categories"
@@ -81,7 +81,7 @@ grouped at the bottom.
       specs.md § "Recurring series editing semantics")
 - [x] needsWantsSavings selector on add/edit form (default `Need`) — see
       specs.md § "Needs/Wants/Savings and categories"
-- [ ] category selector on add/edit form (default null, "Category"
+- [x] category selector on add/edit form (default null, "Category"
       placeholder) — see specs.md § "Needs/Wants/Savings and categories"
 - [x] "Per Month" column on the series list, normalizing each cadence to a
       monthly rate — see specs.md § "Per Month column (Recurring Series
@@ -115,7 +115,7 @@ grouped at the bottom.
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form), with credit card selector when
       kind=credit
-- [ ] needsWantsSavings + category fields on the inline row edit and the
+- [x] needsWantsSavings + category fields on the inline row edit and the
       add-one-off-transaction form (default `Need` / null with "Category"
       placeholder) — see specs.md § "Needs/Wants/Savings and categories"
 

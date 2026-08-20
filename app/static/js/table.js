@@ -6,7 +6,6 @@
   const today = DateUtils.today();
   const windowUrl = container.dataset.windowUrl;
   const defaultCreditCardId = container.dataset.defaultCreditCardId || "";
-  const defaultCategoryId = container.dataset.defaultCategoryId || "";
   const showSkippedToggle = document.getElementById("show-skipped-toggle");
 
   const creditCardsDataEl = document.getElementById("credit-cards-data");
@@ -31,13 +30,14 @@
   }
 
   function categoryOptionsHtml(selectedId) {
-    const selected = selectedId == null ? defaultCategoryId : String(selectedId);
-    return categories
+    const selected = selectedId == null ? "" : String(selectedId);
+    const options = categories
       .map((category) => {
         const value = String(category.id);
         return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(category.name)}</option>`;
       })
       .join("");
+    return `<option value="" ${selected === "" ? "selected" : ""}>Category</option>${options}`;
   }
 
   const PAGE_DAYS = 30;

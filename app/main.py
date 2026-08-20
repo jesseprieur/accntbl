@@ -27,7 +27,6 @@ def _categories_context():
         "categories_json": json.dumps(
             [{"id": category.id, "name": category.name} for category in categories]
         ),
-        "default_category_id": Category.default_category_id(),
     }
 
 

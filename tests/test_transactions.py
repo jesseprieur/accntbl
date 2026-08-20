@@ -692,8 +692,8 @@ def test_create_one_off_transaction_defaults_needs_wants_savings_and_category(cl
     with app.app_context():
         created = Transaction.query.get(data["id"])
         assert created.needs_wants_savings == NeedsWantsSavings.need
-        assert created.category_id == Category.default_category_id()
-        assert data["category_id"] == Category.default_category_id()
+        assert created.category_id is None
+        assert data["category_id"] is None
 
 
 def test_create_one_off_transaction_sets_needs_wants_savings_and_category(client, app):
@@ -748,6 +748,32 @@ def test_update_one_off_transaction_sets_needs_wants_savings_and_category(client
         updated = Transaction.query.get(txn_id)
         assert updated.needs_wants_savings == NeedsWantsSavings.savings
         assert updated.category_id == other_category_id
+
+
+def test_update_one_off_transaction_clears_category_with_empty_string(client, app):
+    with app.app_context():
+        other_category = Category(name="Subscriptions")
+        db.session.add(other_category)
+        txn = Transaction(
+            name="Rent",
+            kind=Kind.cash,
+            amount=Decimal("-400.00"),
+            date=dt.date(2026, 7, 15),
+        )
+        db.session.add(txn)
+        db.session.commit()
+        txn_id = txn.id
+        txn.category_id = other_category.id
+        db.session.commit()
+
+    response = client.patch(f"/transactions/{txn_id}", json={"category_id": ""})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["category_id"] is None
+
+    with app.app_context():
+        updated = Transaction.query.get(txn_id)
+        assert updated.category_id is None
 
 
 def test_window_returns_needs_wants_savings_and_category(client, app):
@@ -1207,9 +1233,6 @@ def test_get_series_returns_series_fields(client, app):
     )
     series_id = create_response.get_json()["id"]
 
-    with app.app_context():
-        none_category_id = Category.none_category().id
-
     response = client.get(f"/transactions/series/{series_id}")
     assert response.status_code == 200
     data = response.get_json()
@@ -1227,7 +1250,7 @@ def test_get_series_returns_series_fields(client, app):
         "credit_card_id": None,
         "amount_logic": None,
         "needs_wants_savings": "need",
-        "category_id": none_category_id,
+        "category_id": None,
     }
 
 

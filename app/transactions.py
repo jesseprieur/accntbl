@@ -150,10 +150,13 @@ def _resolve_credit_card_id(kind, requested_id, existing_id):
 def _resolve_category_id(requested_id, existing_id):
     """Resolve `category_id` for a transaction/series being created or edited.
 
-    Mirrors `_resolve_credit_card_id`: an explicitly requested category is
-    validated to exist, otherwise the current category is kept, otherwise
-    falls back to the seeded `None` category.
+    An explicitly requested category is validated to exist. An explicit
+    empty value (the placeholder option) clears the category to `None`.
+    Otherwise the current category (or `None`, for a new record) is kept.
     """
+    if requested_id == "":
+        return None
+
     if requested_id is not None:
         try:
             category_id = int(requested_id)
@@ -163,10 +166,7 @@ def _resolve_category_id(requested_id, existing_id):
             raise ValueError("Category not found.")
         return category_id
 
-    if existing_id is not None:
-        return existing_id
-
-    return Category.default_category_id()
+    return existing_id
 
 
 @transactions_bp.route("/window", methods=["GET"])

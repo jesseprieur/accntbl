@@ -371,11 +371,9 @@ def test_credit_card_settings_rejects_invalid_close_day(client, app):
         assert CreditCard.query.first() is None
 
 
-def test_none_category_seeded_by_default(app):
+def test_no_categories_seeded_by_default(app):
     with app.app_context():
-        categories = Category.query.all()
-        assert len(categories) == 1
-        assert categories[0].name == "None"
+        assert Category.query.count() == 0
 
 
 def test_create_category(client, app):
@@ -392,18 +390,6 @@ def test_create_category_rejects_duplicate_name(client, app):
 
     with app.app_context():
         assert Category.query.filter_by(name="Groceries").count() == 1
-
-
-def test_delete_none_category_is_blocked(client, app):
-    with app.app_context():
-        none_category = Category.query.filter_by(name="None").one()
-        none_id = none_category.id
-
-    response = client.post(f"/settings/categories/{none_id}/delete")
-    assert response.status_code == 302
-
-    with app.app_context():
-        assert Category.query.get(none_id) is not None
 
 
 def test_delete_category_referenced_by_transaction_is_blocked(client, app):

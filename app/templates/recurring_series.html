@@ -94,8 +94,9 @@
                 <label class="btn btn-outline-primary btn-sm" for="add-series-nws-savings">Savings</label>
               </div>
               <select class="form-select form-select-sm" name="category_id">
+                <option value="" selected>Category</option>
                 {% for category in categories %}
-                  <option value="{{ category.id }}" {% if category.id == default_category_id %}selected{% endif %}>{{ category.name }}</option>
+                  <option value="{{ category.id }}">{{ category.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -178,6 +179,7 @@
                 <label class="btn btn-outline-primary btn-sm" for="edit-series-nws-savings">Savings</label>
               </div>
               <select class="form-select form-select-sm" name="category_id">
+                <option value="">Category</option>
                 {% for category in categories %}
                   <option value="{{ category.id }}">{{ category.name }}</option>
                 {% endfor %}

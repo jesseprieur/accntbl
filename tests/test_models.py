@@ -235,7 +235,7 @@ def test_recurring_series_generated_transaction_is_linked_and_attached(app):
     assert series.transactions == [fetched]
 
 
-def test_transaction_and_series_default_to_none_category_and_need(app):
+def test_transaction_and_series_default_to_no_category_and_need(app):
     series = RecurringSeries(
         name="Paycheck",
         kind=Kind.cash,
@@ -252,16 +252,10 @@ def test_transaction_and_series_default_to_none_category_and_need(app):
     db.session.add_all([series, transaction])
     db.session.commit()
 
-    none_category = Category.none_category()
-    assert series.category_id == none_category.id
+    assert series.category_id is None
     assert series.needs_wants_savings == NeedsWantsSavings.need
-    assert transaction.category_id == none_category.id
+    assert transaction.category_id is None
     assert transaction.needs_wants_savings == NeedsWantsSavings.need
-
-
-def test_category_deletion_blocker_blocks_none_category(app):
-    none_category = Category.none_category()
-    assert none_category.deletion_blocker() is not None
 
 
 def test_category_deletion_blocker_blocks_category_referenced_by_transaction(app):
