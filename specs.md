@@ -61,16 +61,16 @@ cannot be deleted at all.
 ### `categories`
 User-managed labels for transactions/series, separate from the fixed
 `needsWantsSavings` classification below. Managed on the Settings page (add
-new categories; no edit/delete of the seeded `None` row).
+new categories; no seeded rows to start — the table is empty until the user
+adds their own).
 - id
 - name (unique)
 
-Seeded with a single row, `None`, at v1-of-this-feature migration time — the
-default for every existing and new transaction/series until the user adds
-more via Settings. Deleting a category in use is blocked (must reassign
-referencing transactions/series to another category first), mirroring the
-`credit_cards` deletion-blocking pattern; the `None` category itself can
-never be deleted (it's the fallback default and must always exist).
+Not seeded — `category_id` is nullable and defaults to `NULL` (no category)
+for every existing and new transaction/series until the user adds categories
+via Settings and assigns one. Deleting a category in use is blocked (must
+reassign referencing transactions/series to another category, or to no
+category, first), mirroring the `credit_cards` deletion-blocking pattern.
 
 ### `recurring_series`
 Template for generating repeated transactions.
@@ -96,9 +96,8 @@ Template for generating repeated transactions.
   this series unless the occurrence is later detached and re-edited (see
   "Recurring series editing semantics" — same inheritance rules as any other
   series field).
-- category_id (FK to `categories`, not nullable, defaults to the `None`
-  category's id at creation) — same inheritance behavior as
-  `needs_wants_savings`.
+- category_id (nullable FK to `categories`, defaults to `NULL` at creation)
+  — same inheritance behavior as `needs_wants_savings`.
 
 ### `transactions`
 Concrete line items shown in the table. Both one-off and materialized
@@ -119,8 +118,8 @@ recurring occurrences live here.
 - recurring_series_id (nullable — set if generated from a series)
 - needs_wants_savings (`need` | `want` | `savings`, not nullable, defaults
   to `need`) — see "Needs/Wants/Savings and categories" below.
-- category_id (FK to `categories`, not nullable, defaults to the `None`
-  category's id) — see "Needs/Wants/Savings and categories" below.
+- category_id (nullable FK to `categories`, defaults to `NULL`) — see
+  "Needs/Wants/Savings and categories" below.
 - occurrence_status (`attached` | `detached` | `skipped`, only meaningful
   when `recurring_series_id` is set — default `attached`):
   - `attached`: still managed by the series; series edits regenerate/update
@@ -176,9 +175,10 @@ inline row edit):
   buckets are structural to the feature (budgeting rule-of-thumb style
   breakdown), unlike `categories` below.
 - **`category`**: a user-managed, open-ended label (see `categories` in
-  "Data model"). Seeded with a single `None` category; users add more via
-  the Settings page. A dropdown on every transaction/series form, defaulting
-  to `None`.
+  "Data model"). Not seeded — the list starts empty and users add categories
+  via the Settings page. A dropdown on every transaction/series form,
+  defaulting to null (no category), shown with a "Category" placeholder
+  until the user picks one.
 
 Editing either attribute on an `attached` series occurrence follows the same
 detach-on-save rule as any other field (see "Recurring series editing
@@ -353,8 +353,8 @@ password, Flask session-based auth). No self-registration UI needed for v1
 - Settings page manages a list of credit cards (add/edit/delete, mark one as
   default) rather than a single singleton form; delete is blocked per the
   rules in the `credit_cards` data model section above. It also manages the
-  list of `categories` (add new; the seeded `None` category and any category
-  still referenced by a transaction/series cannot be deleted).
+  list of `categories` (add new; starts empty; any category still
+  referenced by a transaction/series cannot be deleted).
 - A top-level Statistics page (see "Statistics page") shows the running-total
   min/max table.
 - Table loads an initial window of rows around "today", then fetches more via
@@ -366,9 +366,10 @@ password, Flask session-based auth). No self-registration UI needed for v1
   save/cancel, saved via Ajax PATCH (see "Recurring series editing
   semantics" for the attached-row detach-on-save behavior).
 - Adding a one-off transaction = a small form/modal on the main table page;
-  includes needsWantsSavings (default Need) and category (default None)
-  selectors; choosing kind=credit reveals the credit card selector (default
-  preselected, user may pick another card).
+  includes needsWantsSavings (default Need) and category (default null,
+  shown with a "Category" placeholder) selectors; choosing kind=credit
+  reveals the credit card selector (default preselected, user may pick
+  another card).
 - Credit card payment-due rows show which card they belong to (when more
   than one card exists) and an "edit estimate" affordance to set/clear the
   override in `credit_due_overrides`, distinct from normal row editing.
