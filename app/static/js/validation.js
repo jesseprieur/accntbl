@@ -1,4 +1,4 @@
-// Pure client-side validation for the inline transaction row editor (see
+// Pure client-side validation for the transaction edit modals (see
 // specs.md Polish phase "Form validation"). UMD-ish export so this can be
 // loaded as a plain <script> in the browser and also required directly from
 // a Node-based unit test.

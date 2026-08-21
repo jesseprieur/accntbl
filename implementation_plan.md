@@ -129,7 +129,7 @@ grouped at the bottom.
 ## Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §
 "Recurring series editing semantics")
-- [ ] Edit action opens a modal (see "Transaction edit modals" below)
+- [x] Edit action opens a modal (see "Transaction edit modals" below)
       instead of an in-place inline edit row; state-dependent which modal
       opens (series -> Edit Occurrence modal, which causes detach as soon
       as any field is edited and saved — cancelling/dismissing discards
@@ -148,29 +148,35 @@ grouped at the bottom.
 ## Transaction edit modals
 (replaces prior in-place inline row editing; see specs.md §
 "Recurring series editing semantics" for full design)
-- [ ] Remove `buildEditRow`/in-place inline edit-row rendering and its
+- [x] Remove `buildEditRow`/in-place inline edit-row rendering and its
       dedicated inline error-row handling in `table.js`
-- [ ] Edit Transaction modal (`index.html`): for plain one-off/detached
+- [x] Edit Transaction modal (`index.html`): for plain one-off/detached
       rows — same field set/layout as the existing Add Transaction modal
       (name, date, Kind toggle + single amount field, credit card
       selector shown only for Kind=Credit, Needs/Wants/Savings toggle,
       category dropdown, notes), submits PATCH `/transactions/<id>`
-- [ ] Edit Occurrence modal (`index.html`): for attached series
+- [x] Edit Occurrence modal (`index.html`): for attached series
       occurrences — same fields as above, plus a persistent notice that
       saving will detach this occurrence from its series; submits the
       same PATCH endpoint (existing unconditional detach-on-edit backend
       behavior in `app/transactions.py` `update()` is unchanged)
-- [ ] "Edit" button click handler picks which modal to open based on
+      (implemented as the same `#edit-transaction-modal` element, whose
+      title/notice toggle based on `row.occurrence_status` — same field
+      layout either way, so a single modal covers both checklist items)
+- [x] "Edit" button click handler picks which modal to open based on
       `row.occurrence_status`, populating fields from the already-loaded
       in-memory row data (`rowDataById`) rather than an extra fetch
-- [ ] Port client-side validation from `Validation.validateTransactionEdit`
+- [x] Port client-side validation from `Validation.validateTransactionEdit`
       into the new modal submit handlers
-- [ ] Both new modals use the shared custom category-dropdown widget (see
+- [x] Both new modals use the shared custom category-dropdown widget (see
       "Category icons") rather than a plain `<select>`
-- [ ] Manual verification: editing a plain one-off, editing a detached
+- [x] Manual verification: editing a plain one-off, editing a detached
       row, and editing an attached occurrence (confirm detach + series
       template itself unaffected) all save correctly and match prior
       inline-edit behavior; Skip/Un-skip/Delete buttons unaffected
+      (verified by running the real dev server and driving the exact
+      HTTP calls the new modal issues, since no browser-automation
+      tool was available in this environment — no visual/DOM check)
 
 ## Statistics page
 - [ ] New nav entry + route, alongside Table / Recurring Series / Settings

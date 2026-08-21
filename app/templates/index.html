@@ -72,6 +72,67 @@
     </div>
   </div>
 
+  <div class="modal fade" id="edit-transaction-modal" tabindex="-1" aria-labelledby="edit-transaction-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="edit-transaction-form">
+          <input type="hidden" name="id">
+          <div class="modal-header">
+            <h2 class="modal-title h5" id="edit-transaction-modal-label">Edit transaction</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="text-danger small mb-2 d-none" id="edit-transaction-error"></div>
+            <div class="alert alert-warning small d-none" id="edit-transaction-detach-notice">
+              <i class="bi bi-exclamation-triangle"></i> Saving will detach this occurrence from its recurring series — future series edits will no longer affect it.
+            </div>
+            <div class="mb-2 d-flex gap-2">
+              <input type="text" class="form-control form-control-sm" name="name" placeholder="Name" required>
+              <input type="date" class="form-control form-control-sm" name="date" required>
+            </div>
+            <div class="mb-2 d-flex gap-2">
+              <div class="btn-group" role="group" aria-label="Kind">
+                <input type="radio" class="btn-check" name="kind" id="edit-transaction-kind-cash" value="cash">
+                <label class="btn btn-outline-primary btn-sm" for="edit-transaction-kind-cash">Cash</label>
+                <input type="radio" class="btn-check" name="kind" id="edit-transaction-kind-credit" value="credit">
+                <label class="btn btn-outline-primary btn-sm" for="edit-transaction-kind-credit">Credit</label>
+              </div>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="number" step="0.01" class="form-control form-control-sm" name="amount" required>
+              </div>
+            </div>
+            <div class="mb-2 d-none" id="edit-transaction-card-field">
+              <select class="form-select form-select-sm" name="credit_card_id" id="edit-transaction-card-select">
+                {% for card in credit_cards %}
+                  <option value="{{ card.id }}" {% if card.id == default_credit_card_id %}selected{% endif %}>{{ card.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-2 d-flex gap-2">
+              <div class="btn-group" role="group" aria-label="Needs/Wants/Savings">
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-transaction-nws-need" value="need">
+                <label class="btn btn-outline-primary btn-sm" for="edit-transaction-nws-need">Need</label>
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-transaction-nws-want" value="want">
+                <label class="btn btn-outline-primary btn-sm" for="edit-transaction-nws-want">Want</label>
+                <input type="radio" class="btn-check" name="needs_wants_savings" id="edit-transaction-nws-savings" value="savings">
+                <label class="btn btn-outline-primary btn-sm" for="edit-transaction-nws-savings">Savings</label>
+              </div>
+              <div class="flex-grow-1" id="edit-transaction-category-picker"></div>
+            </div>
+            <div class="mb-2">
+              <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg"></i> Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="edit-estimate-modal" tabindex="-1" aria-labelledby="edit-estimate-modal-label" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">

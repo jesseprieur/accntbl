@@ -16,16 +16,6 @@
     return card ? card.name : "";
   }
 
-  function cardOptionsHtml(selectedId) {
-    const selected = selectedId == null ? defaultCreditCardId : String(selectedId);
-    return creditCards
-      .map((card) => {
-        const value = String(card.id);
-        return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(card.name)}</option>`;
-      })
-      .join("");
-  }
-
   const PAGE_DAYS = 30;
   const FUTURE_LIMIT_DAYS = 365;
   const SCROLL_THRESHOLD_PX = 100;
@@ -70,9 +60,11 @@
     return spanWithClass(formatAmount(row.running_total), ColorCoding.runningTotalClass(row.is_negative));
   }
 
-  // Raw row data keyed by transaction id, so an in-progress edit can be
-  // cancelled back to its last-known-good values without a round trip.
+  // Raw row data keyed by transaction id, so opening the edit modal can
+  // populate its fields without a round trip.
   const rowDataById = new Map();
+  // Assigned once the edit-transaction modal is wired up below.
+  let openEditTransactionModal = () => {};
   // Payment-due (virtual) rows have no transaction id, so they're keyed by
   // card + due date instead, for the "edit estimate" modal to prefill from.
   const paymentDueRowsByKey = new Map();
@@ -152,65 +144,6 @@
     return tr;
   }
 
-  function buildEditRow(row) {
-    const tr = document.createElement("tr");
-    tr.dataset.date = row.date;
-    tr.dataset.id = row.id;
-    const isCredit = row.credit_amount != null;
-    tr.innerHTML = `
-      <td><input type="date" class="form-control form-control-sm border-0" data-field="date" value="${Escape.html(row.date)}" required></td>
-      <td>
-        <input type="text" class="form-control form-control-sm border-0" data-field="name" value="${Escape.html(row.name)}" required>
-        <input type="text" class="form-control form-control-sm border-0 mt-1" data-field="notes" placeholder="Notes" value="${Escape.html(row.notes || "")}">
-        <select class="form-select form-select-sm border-0 mt-1" data-field="needs_wants_savings">
-          <option value="need" ${row.needs_wants_savings === "need" ? "selected" : ""}>Need</option>
-          <option value="want" ${row.needs_wants_savings === "want" ? "selected" : ""}>Want</option>
-          <option value="savings" ${row.needs_wants_savings === "savings" ? "selected" : ""}>Savings</option>
-        </select>
-        <div class="mt-1">${CategoryPicker.html(row.category_id)}</div>
-      </td>
-      <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${Escape.html(formatAmount(row.cash_amount))}"></td>
-      <td>
-        <input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="credit_amount" value="${Escape.html(formatAmount(row.credit_amount))}">
-        <select class="form-select form-select-sm mt-1 ${isCredit ? "" : "d-none"}" data-card-select>
-          ${cardOptionsHtml(row.credit_card_id)}
-        </select>
-      </td>
-      <td>${row.running_total == null ? "" : formatAmount(row.running_total)}</td>
-      <td class="text-nowrap">
-        <button type="button" class="btn btn-primary btn-sm" data-action="save"><i class="bi bi-check-lg"></i> Save</button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="cancel"><i class="bi bi-x-lg"></i> Cancel</button>
-      </td>
-    `;
-    const creditAmountInput = tr.querySelector('[data-field="credit_amount"]');
-    const cardSelect = tr.querySelector("[data-card-select]");
-    if (creditAmountInput && cardSelect) {
-      creditAmountInput.addEventListener("input", () => {
-        cardSelect.classList.toggle("d-none", !creditAmountInput.value);
-      });
-    }
-    return tr;
-  }
-
-  function buildEditRowErrorRow(message) {
-    const tr = document.createElement("tr");
-    tr.classList.add("edit-row-error");
-    tr.innerHTML = `<td colspan="6" class="text-danger small py-1">${Escape.html(message)}</td>`;
-    return tr;
-  }
-
-  function clearEditRowError(tr) {
-    const next = tr.nextElementSibling;
-    if (next && next.classList.contains("edit-row-error")) {
-      next.remove();
-    }
-  }
-
-  function showEditRowError(tr, message) {
-    clearEditRowError(tr);
-    tr.after(buildEditRowErrorRow(message));
-  }
-
   function buildMonthEndRow(row) {
     const tr = document.createElement("tr");
     tr.dataset.date = row.date;
@@ -232,55 +165,6 @@
       <td>${changeLabel}</td>
     `;
     return tr;
-  }
-
-  function saveRow(tr) {
-    const id = tr.dataset.id;
-    if (!id) return;
-
-    const values = {};
-    tr.querySelectorAll("[data-field]").forEach((input) => {
-      values[input.dataset.field] = input.value.trim();
-    });
-
-    const validationError = Validation.validateTransactionEdit(values);
-    if (validationError) {
-      showEditRowError(tr, validationError);
-      return;
-    }
-    clearEditRowError(tr);
-
-    const body = {
-      name: values.name,
-      date: values.date,
-      notes: values.notes || null,
-      needs_wants_savings: values.needs_wants_savings,
-      category_id: values.category_id,
-    };
-    if (values.cash_amount) {
-      body.kind = "cash";
-      body.amount = values.cash_amount;
-    } else if (values.credit_amount) {
-      body.kind = "credit";
-      body.amount = values.credit_amount;
-      const cardSelect = tr.querySelector("[data-card-select]");
-      if (cardSelect) body.credit_card_id = cardSelect.value;
-    }
-
-    fetch(`/transactions/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-      .then(({ ok, data }) => {
-        if (!ok) {
-          showEditRowError(tr, data.error || "Failed to save change.");
-          return;
-        }
-        reloadLoadedWindow();
-      })
-      .catch(() => showEditRowError(tr, AppErrors.NETWORK_ERROR_MESSAGE));
   }
 
   function deleteRow(tr) {
@@ -428,25 +312,7 @@
     if (editButton) {
       const tr = editButton.closest("tr");
       const row = tr && rowDataById.get(tr.dataset.id);
-      if (row) tr.replaceWith(buildEditRow(row));
-      return;
-    }
-
-    const cancelButton = event.target.closest('[data-action="cancel"]');
-    if (cancelButton) {
-      const tr = cancelButton.closest("tr");
-      const row = tr && rowDataById.get(tr.dataset.id);
-      if (row) {
-        clearEditRowError(tr);
-        tr.replaceWith(buildViewRow(row));
-      }
-      return;
-    }
-
-    const saveButton = event.target.closest('[data-action="save"]');
-    if (saveButton) {
-      const tr = saveButton.closest("tr");
-      if (tr) saveRow(tr);
+      if (row) openEditTransactionModal(row);
       return;
     }
 
@@ -668,6 +534,115 @@
         .catch(() => {
           addError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
           addError.classList.remove("d-none");
+        });
+    });
+  }
+
+  const editForm = document.getElementById("edit-transaction-form");
+  if (editForm) {
+    const editModalEl = document.getElementById("edit-transaction-modal");
+    const editModalLabel = document.getElementById("edit-transaction-modal-label");
+    const editError = document.getElementById("edit-transaction-error");
+    const editCardField = document.getElementById("edit-transaction-card-field");
+    const editDetachNotice = document.getElementById("edit-transaction-detach-notice");
+    const editCategoryPickerEl = document.getElementById("edit-transaction-category-picker");
+
+    const toggleEditCardField = () => {
+      const checked = editForm.querySelector('input[name="kind"]:checked');
+      if (editCardField) editCardField.classList.toggle("d-none", !checked || checked.value !== "credit");
+    };
+    editForm.querySelectorAll('input[name="kind"]').forEach((radio) => {
+      radio.addEventListener("change", toggleEditCardField);
+    });
+
+    // Populates the shared Edit Transaction/Edit Occurrence modal from an
+    // already-loaded row (rowDataById) rather than an extra fetch, and
+    // switches its title/notice depending on whether saving will detach
+    // this row from its series (see specs.md "Recurring series editing
+    // semantics").
+    openEditTransactionModal = function (row) {
+      const isSeriesOccurrence =
+        row.occurrence_status === "attached" && row.recurring_series_id != null;
+      const isCredit = row.credit_amount != null;
+
+      editForm.elements["id"].value = row.id;
+      editForm.elements["name"].value = row.name;
+      editForm.elements["date"].value = row.date;
+      editForm.elements["notes"].value = row.notes || "";
+      editForm.elements["kind"].value = isCredit ? "credit" : "cash";
+      editForm.elements["amount"].value = formatAmount(isCredit ? row.credit_amount : row.cash_amount);
+      editForm.elements["credit_card_id"].value = row.credit_card_id != null ? row.credit_card_id : defaultCreditCardId;
+      editForm.elements["needs_wants_savings"].value = row.needs_wants_savings || "need";
+      toggleEditCardField();
+
+      if (editCategoryPickerEl) {
+        CategoryPicker.mount(editCategoryPickerEl, row.category_id);
+      }
+
+      if (editModalLabel) {
+        editModalLabel.textContent = isSeriesOccurrence ? "Edit occurrence" : "Edit transaction";
+      }
+      if (editDetachNotice) {
+        editDetachNotice.classList.toggle("d-none", !isSeriesOccurrence);
+      }
+      if (editError) editError.classList.add("d-none");
+
+      const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editModalEl) : null;
+      if (modal) modal.show();
+    };
+
+    editForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(editForm);
+      const id = formData.get("id");
+      const kind = formData.get("kind");
+      const amount = formData.get("amount");
+
+      const validationError = Validation.validateTransactionEdit({
+        name: formData.get("name"),
+        date: formData.get("date"),
+        cash_amount: kind === "cash" ? amount : "",
+        credit_amount: kind === "credit" ? amount : "",
+      });
+      if (validationError) {
+        editError.textContent = validationError;
+        editError.classList.remove("d-none");
+        return;
+      }
+
+      const body = {
+        name: formData.get("name"),
+        date: formData.get("date"),
+        notes: formData.get("notes") || null,
+        needs_wants_savings: formData.get("needs_wants_savings"),
+        category_id: formData.get("category_id"),
+        kind,
+        amount,
+      };
+      if (kind === "credit") {
+        body.credit_card_id = formData.get("credit_card_id");
+      }
+
+      fetch(`/transactions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            editError.textContent = data.error || "Failed to save change.";
+            editError.classList.remove("d-none");
+            return;
+          }
+          editError.classList.add("d-none");
+          const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(editModalEl) : null;
+          if (modal) modal.hide();
+          reloadLoadedWindow();
+        })
+        .catch(() => {
+          editError.textContent = AppErrors.NETWORK_ERROR_MESSAGE;
+          editError.classList.remove("d-none");
         });
     });
   }

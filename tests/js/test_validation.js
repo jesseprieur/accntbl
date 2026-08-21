@@ -42,4 +42,26 @@ assert.strictEqual(
   "Credit amount must be a number."
 );
 
+// The Edit Transaction/Edit Occurrence modals (table.js) collect a single
+// Kind toggle + Amount field, then map it onto the same
+// cash_amount/credit_amount shape this validator expects before submitting.
+function valuesForModal(kind, amount) {
+  return {
+    ...base,
+    cash_amount: kind === "cash" ? amount : "",
+    credit_amount: kind === "credit" ? amount : "",
+  };
+}
+
+assert.strictEqual(validateTransactionEdit(valuesForModal("cash", "12.34")), null);
+assert.strictEqual(validateTransactionEdit(valuesForModal("credit", "-5.00")), null);
+assert.strictEqual(
+  validateTransactionEdit(valuesForModal("cash", "")),
+  "Amount is required."
+);
+assert.strictEqual(
+  validateTransactionEdit(valuesForModal("cash", "not-a-number")),
+  "Cash amount must be a number."
+);
+
 console.log("test_validation: all assertions passed");
