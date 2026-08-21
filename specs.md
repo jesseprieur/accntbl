@@ -65,12 +65,43 @@ new categories; no seeded rows to start — the table is empty until the user
 adds their own).
 - id
 - name (unique)
+- icon (nullable, string — a Bootstrap Icons class name, e.g. `bi-cart`;
+  see "Category icons" below)
 
 Not seeded — `category_id` is nullable and defaults to `NULL` (no category)
 for every existing and new transaction/series until the user adds categories
 via Settings and assigns one. Deleting a category in use is blocked (must
 reassign referencing transactions/series to another category, or to no
 category, first), mirroring the `credit_cards` deletion-blocking pattern.
+Categories are editable after creation (name and icon), unlike credit cards
+there is no default/is-default concept to enforce.
+
+## Category icons
+
+Each category may have an icon, shown everywhere the category is displayed
+or chosen, so categories are recognizable at a glance instead of by name
+text alone. Bootstrap Icons is already loaded app-wide, so no new
+dependency is introduced — `Category.icon` simply stores a Bootstrap Icons
+class name (e.g. `bi-cart`), rendered as `<i class="bi {icon}">`.
+
+- **Picker, not free text**: the Settings page offers a curated grid of a
+  fixed preset list of ~30-40 Bootstrap Icons classes (shopping, home,
+  transport, health, food, entertainment, utilities, travel, kids, pets,
+  gifts, savings, etc.) rather than a free-text class-name field, to avoid
+  typos/invalid classes and keep the visual language consistent. The preset
+  list is validated server-side on create/edit (reject any submitted value
+  not in the list) as well as rendered client-side as the picker.
+- **Custom dropdown everywhere, not native `<select>`**: native HTML
+  `<option>` elements cannot render icon glyphs, so every category picker in
+  the app (add-transaction modal, add/edit recurring series modals, inline
+  transaction-row edit) is a hand-rolled dropdown widget instead of a plain
+  `<select>` — showing the selected category's icon+name in the closed
+  toggle and in every row of the open menu. Under the hood each widget still
+  maintains a hidden `category_id` field with the same `name`/`data-field`
+  the existing save/read code already expects, so transaction/series
+  save logic does not change.
+- Categories without an icon (e.g. legacy rows created before this feature)
+  render a neutral fallback glyph (e.g. `bi-tag`) rather than blank space.
 
 ### `recurring_series`
 Template for generating repeated transactions.
@@ -287,18 +318,32 @@ table. Saving there offers two modes:
   series' history, it requires an explicit confirmation step before
   submitting.
 
-Editing a table row is always an inline edit (Ajax PATCH) with explicit
-save/cancel controls — there is no separate "open series form" flow
-triggered from a row anymore:
-- `attached` row: inline edit; **saving** any field detaches this single
-  occurrence (`occurrence_status = 'detached'`, same row/id) and applies
-  the edit to it — the row becomes an independent one-off from then on,
-  no longer touched by future series edits. **Cancelling** discards the
-  changes and leaves the row `attached`.
-- `detached` row (or a plain one-off): inline edit with save/cancel;
+Editing a table row opens one of two modals (Ajax PATCH under the hood),
+chosen by the row's current `occurrence_status`, rather than editing the
+row in place within the table. The previous in-place inline-edit row held
+too many fields (name, notes, needs/wants/savings, category, cash amount,
+credit amount, credit card) to be usable and is retired in favor of these:
+- **Edit Occurrence modal** — opened for an `attached` row. Uses the same
+  field layout as "Add transaction" (name/date, Kind toggle + a single
+  amount field, credit card selector shown only for Kind=Credit,
+  Needs/Wants/Savings toggle, category dropdown, notes), plus a persistent
+  notice that saving will detach this occurrence from its series.
+  **Saving** any field detaches this single occurrence
+  (`occurrence_status = 'detached'`, same row/id) and applies the edit to
+  it — the row becomes an independent one-off from then on, no longer
+  touched by future series edits. **Cancelling**/dismissing the modal
+  discards the changes and leaves the row `attached`.
+- **Edit Transaction modal** — opened for a `detached` row or a plain
+  one-off (no `recurring_series_id`). Same field layout, no detach notice;
   saving affects only that transaction, cancelling discards the changes.
 - There is no separate "Detach" button — detaching is a side effect of
-  saving an edit to an `attached` row, not its own action.
+  saving an edit via the Edit Occurrence modal, not its own action.
+- Both modals populate their fields from the row data already loaded into
+  the table's in-memory row map (the same source the old inline edit row
+  used) rather than an extra fetch, since that data is already complete
+  and up to date once the table has loaded the row.
+- Skip / Un-skip / Delete remain row-level buttons on the table, unchanged
+  — only the "Edit" action moved into a modal.
 
 The delete/skip action on a row is state-dependent, and the button label
 reflects which behavior will happen:
@@ -360,11 +405,12 @@ password, Flask session-based auth). No self-registration UI needed for v1
 - Table loads an initial window of rows around "today", then fetches more via
   Ajax as the user scrolls down (future, up to 1 year out) or up (past
   history).
-- Row edit = inline editable fields (name, cash/credit amount, date, notes,
-  needsWantsSavings, category, and — when kind=credit — a credit card
-  selector defaulting to the current default card) with explicit
-  save/cancel, saved via Ajax PATCH (see "Recurring series editing
-  semantics" for the attached-row detach-on-save behavior).
+- Row edit = one of two modals (Edit Transaction / Edit Occurrence, chosen
+  by the row's state) with the same field set as the Add Transaction modal
+  (name, date, Kind toggle + amount, credit card selector when
+  Kind=Credit, needsWantsSavings, category, notes), saved via Ajax PATCH
+  (see "Recurring series editing semantics" for the attached-row
+  detach-on-save behavior and why there are two modals).
 - Adding a one-off transaction = a small form/modal on the main table page;
   includes needsWantsSavings (default Need) and category (default null,
   shown with a "Category" placeholder) selectors; choosing kind=credit

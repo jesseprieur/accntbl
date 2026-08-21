@@ -72,6 +72,30 @@ grouped at the bottom.
       cannot be deleted) — see specs.md § `categories`, "Needs/Wants/Savings
       and categories"
 
+## Category icons
+(see specs.md § "Category icons" for full design)
+- [ ] `categories.icon` column (nullable string) + Alembic migration
+- [ ] Preset list (~30-40 Bootstrap Icons class names) defined server-side,
+      used for validation and for rendering the picker
+- [ ] `create_category`/new `edit_category` route: validate submitted icon
+      against the preset list; support editing name + icon on existing
+      categories (not just create/delete)
+- [ ] Settings page: icon column in the categories list, icon picker grid
+      wired into both the create-category row and the new edit flow
+- [ ] `_categories_context()`/`categories_json` includes `icon`
+- [ ] Shared custom category-dropdown widget (vanilla JS, built on the
+      existing Bootstrap dropdown JS) showing icon+name in the closed
+      toggle and open menu, backed by a hidden `category_id` field
+      compatible with existing save/read code (`table.js` `saveRow`,
+      `FormData.get("category_id")`, `recurring_series.js` modal populate)
+- [ ] Replace the 4 existing native category `<select>`s (add-transaction
+      modal, add-series modal, edit-series modal, inline transaction-row
+      edit) with the shared widget
+- [ ] Categories without an icon render a fallback glyph (e.g. `bi-tag`)
+- [ ] Unit/manual verification: icon persists through create/edit/backup
+      export-import round-trip; widget correctly sets/reads `category_id`
+      in all 4 locations
+
 ## Recurring Series page
 - [x] View/edit/delete/add recurring series
 - [x] Credit card selector (shown only when kind=credit, defaults to the
@@ -105,19 +129,48 @@ grouped at the bottom.
 ## Row editing
 (state-dependent edit/detach/delete/skip semantics: see specs.md §
 "Recurring series editing semantics")
-- [x] Edit row button with save/cancel: state-dependent (series -> in-line
-      edit, which causes detach as soon as any field edited and saved. If
-      cancelled, changes are discarded and transaction stays attached; single
-      -> in-line edit with save/cancel buttons to keep/discard changes)
+- [ ] Edit action opens a modal (see "Transaction edit modals" below)
+      instead of an in-place inline edit row; state-dependent which modal
+      opens (series -> Edit Occurrence modal, which causes detach as soon
+      as any field is edited and saved — cancelling/dismissing discards
+      changes and the transaction stays attached; single/detached -> Edit
+      Transaction modal with the same save/cancel semantics)
 - [x] Delete/Skip row button for single transactions: state dependent + label
       ("Skip" action for series item, which skips the current iteration;
       "Delete" for single transactions, which deletes the single transaction)
 - [x] "Un-skip" action for recurring rows
 - [x] Add one-off transaction (modal/form), with credit card selector when
       kind=credit
-- [x] needsWantsSavings + category fields on the inline row edit and the
+- [x] needsWantsSavings + category fields on the row-edit modals and the
       add-one-off-transaction form (default `Need` / null with "Category"
       placeholder) — see specs.md § "Needs/Wants/Savings and categories"
+
+## Transaction edit modals
+(replaces prior in-place inline row editing; see specs.md §
+"Recurring series editing semantics" for full design)
+- [ ] Remove `buildEditRow`/in-place inline edit-row rendering and its
+      dedicated inline error-row handling in `table.js`
+- [ ] Edit Transaction modal (`index.html`): for plain one-off/detached
+      rows — same field set/layout as the existing Add Transaction modal
+      (name, date, Kind toggle + single amount field, credit card
+      selector shown only for Kind=Credit, Needs/Wants/Savings toggle,
+      category dropdown, notes), submits PATCH `/transactions/<id>`
+- [ ] Edit Occurrence modal (`index.html`): for attached series
+      occurrences — same fields as above, plus a persistent notice that
+      saving will detach this occurrence from its series; submits the
+      same PATCH endpoint (existing unconditional detach-on-edit backend
+      behavior in `app/transactions.py` `update()` is unchanged)
+- [ ] "Edit" button click handler picks which modal to open based on
+      `row.occurrence_status`, populating fields from the already-loaded
+      in-memory row data (`rowDataById`) rather than an extra fetch
+- [ ] Port client-side validation from `Validation.validateTransactionEdit`
+      into the new modal submit handlers
+- [ ] Both new modals use the shared custom category-dropdown widget (see
+      "Category icons") rather than a plain `<select>`
+- [ ] Manual verification: editing a plain one-off, editing a detached
+      row, and editing an attached occurrence (confirm detach + series
+      template itself unaffected) all save correctly and match prior
+      inline-edit behavior; Skip/Un-skip/Delete buttons unaffected
 
 ## Statistics page
 - [ ] New nav entry + route, alongside Table / Recurring Series / Settings
