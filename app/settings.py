@@ -6,7 +6,7 @@ from flask import Blueprint, Response, flash, redirect, render_template, request
 
 from app.auth import login_required
 from app.extensions import db
-from app.models import Category, CheckingAccount, CreditCard
+from app.models import CATEGORY_ICON_CHOICES, Category, CheckingAccount, CreditCard
 from app.services.backup import build_snapshot, restore_snapshot, validate_snapshot
 from app.services.credit_card import compute_starting_balance_due_date
 
@@ -45,6 +45,7 @@ def index():
         checking_accounts=checking_accounts,
         credit_cards=credit_cards,
         categories=categories,
+        category_icon_choices=CATEGORY_ICON_CHOICES,
     )
 
 
@@ -195,6 +196,15 @@ def delete_credit_card(card_id):
     return redirect(url_for("settings.index"))
 
 
+def _parse_category_icon(value):
+    icon = (value or "").strip()
+    if not icon:
+        return None
+    if icon not in CATEGORY_ICON_CHOICES:
+        raise ValueError("Invalid icon selection.")
+    return icon
+
+
 @settings_bp.route("/categories", methods=["POST"])
 @login_required
 def create_category():
@@ -204,8 +214,34 @@ def create_category():
             raise ValueError("Name is required.")
         if Category.query.filter_by(name=name).first() is not None:
             raise ValueError("A category with that name already exists.")
+        icon = _parse_category_icon(request.form.get("icon"))
 
-        db.session.add(Category(name=name))
+        db.session.add(Category(name=name, icon=icon))
+        db.session.commit()
+    except ValueError as exc:
+        flash(str(exc))
+
+    return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/categories/<int:category_id>", methods=["POST"])
+@login_required
+def update_category(category_id):
+    category = Category.query.get_or_404(category_id)
+
+    try:
+        name = request.form.get("name", "").strip()
+        if not name:
+            raise ValueError("Name is required.")
+        existing = Category.query.filter(
+            Category.name == name, Category.id != category_id
+        ).first()
+        if existing is not None:
+            raise ValueError("A category with that name already exists.")
+        icon = _parse_category_icon(request.form.get("icon"))
+
+        category.name = name
+        category.icon = icon
         db.session.commit()
     except ValueError as exc:
         flash(str(exc))

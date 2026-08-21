@@ -263,6 +263,10 @@
           }
           addSeriesError.classList.add("d-none");
           addSeriesForm.reset();
+          const addSeriesCategoryPicker = addSeriesForm.querySelector(".category-picker");
+          if (addSeriesCategoryPicker) {
+            CategoryPicker.setValue(addSeriesCategoryPicker, "");
+          }
           toggleSeriesCustomFields();
           toggleAddSeriesCardField();
           const modal = window.bootstrap
@@ -331,7 +335,10 @@
           editSeriesForm.elements["credit_card_id"].value = data.credit_card_id;
         }
         editSeriesForm.elements["needs_wants_savings"].value = data.needs_wants_savings;
-        editSeriesForm.elements["category_id"].value = data.category_id != null ? data.category_id : "";
+        const editSeriesCategoryPicker = editSeriesForm.querySelector(".category-picker");
+        if (editSeriesCategoryPicker) {
+          CategoryPicker.setValue(editSeriesCategoryPicker, data.category_id);
+        }
         editSeriesForm.elements["save_mode"].value = "all";
         editSeriesForm.elements["effective_date"].value = "";
         if (editAmountLogic) editAmountLogic.populate(data.amount_logic);

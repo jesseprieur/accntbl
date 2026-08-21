@@ -2,6 +2,24 @@
 
 {% block title %}Settings — accntbl{% endblock %}
 
+{% macro icon_picker(form_id, current_icon) %}
+  <div class="dropdown category-icon-picker" data-icon-picker>
+    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+      <i class="bi {{ current_icon or 'bi-tag' }}"></i>
+    </button>
+    <div class="dropdown-menu p-2" style="max-width: 260px;">
+      <div class="d-flex flex-wrap gap-1">
+        {% for icon in category_icon_choices %}
+          <button type="button" class="btn btn-sm btn-outline-secondary icon-picker-option {{ 'active' if icon == current_icon else '' }}" data-icon-value="{{ icon }}" title="{{ icon }}">
+            <i class="bi {{ icon }}"></i>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+    <input type="hidden" form="{{ form_id }}" name="icon" value="{{ current_icon or '' }}">
+  </div>
+{% endmacro %}
+
 {% block content %}
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3">Settings</h1>
@@ -93,6 +111,7 @@
   <table class="table table-sm align-middle">
     <thead>
       <tr>
+        <th>Icon</th>
         <th>Name</th>
         <th></th>
       </tr>
@@ -100,14 +119,18 @@
     <tbody>
       {% for category in categories %}
         <tr>
-          <td>{{ category.name }}</td>
+          <td>{{ icon_picker("edit-category-" ~ category.id, category.icon) }}</td>
+          <td><input type="text" form="edit-category-{{ category.id }}" class="form-control form-control-sm" name="name" value="{{ category.name }}" required></td>
           <td class="text-nowrap">
+            <button type="submit" form="edit-category-{{ category.id }}" class="btn btn-primary btn-sm"><i class="bi bi-check-lg"></i> Save</button>
             <button type="submit" form="delete-category-{{ category.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
           </td>
         </tr>
+        <form id="edit-category-{{ category.id }}" method="post" action="{{ url_for('settings.update_category', category_id=category.id) }}"></form>
         <form id="delete-category-{{ category.id }}" method="post" action="{{ url_for('settings.delete_category', category_id=category.id) }}"></form>
       {% endfor %}
       <tr>
+        <td>{{ icon_picker("create-category", None) }}</td>
         <td><input type="text" form="create-category" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
         <td><button type="submit" form="create-category" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
       </tr>
@@ -153,6 +176,17 @@
 {% block scripts %}
   <script>
     document.getElementById("create-account-as-of-date").value = DateUtils.today();
+
+    document.addEventListener("click", function (event) {
+      const option = event.target.closest(".icon-picker-option");
+      if (!option) return;
+      const picker = option.closest("[data-icon-picker]");
+      if (!picker) return;
+      const iconValue = option.dataset.iconValue;
+      picker.querySelector('input[type="hidden"]').value = iconValue;
+      picker.querySelector(".dropdown-toggle i").className = `bi ${iconValue}`;
+      picker.querySelectorAll(".icon-picker-option").forEach((btn) => btn.classList.toggle("active", btn === option));
+    });
 
     (function () {
       const fileInput = document.getElementById("restore-backup-file");

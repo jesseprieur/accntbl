@@ -61,13 +61,17 @@ def test_db_downgrade_dash_one_with_separator_reverts_one_migration(app, runner)
         recurring_series_columns = {
             c["name"]: c for c in inspector.get_columns("recurring_series")
         }
+        category_columns = {
+            c["name"]: c for c in inspector.get_columns("categories")
+        }
 
-    # One step back from head only reverts the latest migration (make
-    # category_id nullable), not every migration back to base.
+    # One step back from head only reverts the latest migration (add
+    # categories.icon), not every migration back to base.
     assert "recurring_series" in actual_tables
     assert "category_id" in recurring_series_columns
-    assert recurring_series_columns["category_id"]["nullable"] is False
+    assert recurring_series_columns["category_id"]["nullable"] is True
     assert "amount_logic" in recurring_series_columns
+    assert "icon" not in category_columns
 
 
 def test_db_downgrade_to_base_reverts_all_tables(app, runner):

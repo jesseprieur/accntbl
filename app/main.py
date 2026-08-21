@@ -25,7 +25,10 @@ def _categories_context():
     return {
         "categories": categories,
         "categories_json": json.dumps(
-            [{"id": category.id, "name": category.name} for category in categories]
+            [
+                {"id": category.id, "name": category.name, "icon": category.icon}
+                for category in categories
+            ]
         ),
     }
 

@@ -11,9 +11,6 @@
   const creditCardsDataEl = document.getElementById("credit-cards-data");
   const creditCards = creditCardsDataEl ? JSON.parse(creditCardsDataEl.textContent) : [];
 
-  const categoriesDataEl = document.getElementById("categories-data");
-  const categories = categoriesDataEl ? JSON.parse(categoriesDataEl.textContent) : [];
-
   function cardName(cardId) {
     const card = creditCards.find((c) => String(c.id) === String(cardId));
     return card ? card.name : "";
@@ -27,17 +24,6 @@
         return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(card.name)}</option>`;
       })
       .join("");
-  }
-
-  function categoryOptionsHtml(selectedId) {
-    const selected = selectedId == null ? "" : String(selectedId);
-    const options = categories
-      .map((category) => {
-        const value = String(category.id);
-        return `<option value="${value}" ${value === selected ? "selected" : ""}>${Escape.html(category.name)}</option>`;
-      })
-      .join("");
-    return `<option value="" ${selected === "" ? "selected" : ""}>Category</option>${options}`;
   }
 
   const PAGE_DAYS = 30;
@@ -181,9 +167,7 @@
           <option value="want" ${row.needs_wants_savings === "want" ? "selected" : ""}>Want</option>
           <option value="savings" ${row.needs_wants_savings === "savings" ? "selected" : ""}>Savings</option>
         </select>
-        <select class="form-select form-select-sm border-0 mt-1" data-field="category_id">
-          ${categoryOptionsHtml(row.category_id)}
-        </select>
+        <div class="mt-1">${CategoryPicker.html(row.category_id)}</div>
       </td>
       <td><input type="number" step="0.01" class="form-control form-control-sm border-0" data-field="cash_amount" value="${Escape.html(formatAmount(row.cash_amount))}"></td>
       <td>
@@ -672,6 +656,10 @@
           }
           addError.classList.add("d-none");
           addForm.reset();
+          const addTransactionCategoryPicker = addForm.querySelector(".category-picker");
+          if (addTransactionCategoryPicker) {
+            CategoryPicker.setValue(addTransactionCategoryPicker, "");
+          }
           toggleAddCardField();
           const modal = window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(addModalEl) : null;
           if (modal) modal.hide();

@@ -74,25 +74,25 @@ grouped at the bottom.
 
 ## Category icons
 (see specs.md § "Category icons" for full design)
-- [ ] `categories.icon` column (nullable string) + Alembic migration
-- [ ] Preset list (~30-40 Bootstrap Icons class names) defined server-side,
+- [x] `categories.icon` column (nullable string) + Alembic migration
+- [x] Preset list (~30-40 Bootstrap Icons class names) defined server-side,
       used for validation and for rendering the picker
-- [ ] `create_category`/new `edit_category` route: validate submitted icon
+- [x] `create_category`/new `edit_category` route: validate submitted icon
       against the preset list; support editing name + icon on existing
       categories (not just create/delete)
-- [ ] Settings page: icon column in the categories list, icon picker grid
+- [x] Settings page: icon column in the categories list, icon picker grid
       wired into both the create-category row and the new edit flow
-- [ ] `_categories_context()`/`categories_json` includes `icon`
-- [ ] Shared custom category-dropdown widget (vanilla JS, built on the
+- [x] `_categories_context()`/`categories_json` includes `icon`
+- [x] Shared custom category-dropdown widget (vanilla JS, built on the
       existing Bootstrap dropdown JS) showing icon+name in the closed
       toggle and open menu, backed by a hidden `category_id` field
       compatible with existing save/read code (`table.js` `saveRow`,
       `FormData.get("category_id")`, `recurring_series.js` modal populate)
-- [ ] Replace the 4 existing native category `<select>`s (add-transaction
+- [x] Replace the 4 existing native category `<select>`s (add-transaction
       modal, add-series modal, edit-series modal, inline transaction-row
       edit) with the shared widget
-- [ ] Categories without an icon render a fallback glyph (e.g. `bi-tag`)
-- [ ] Unit/manual verification: icon persists through create/edit/backup
+- [x] Categories without an icon render a fallback glyph (e.g. `bi-tag`)
+- [x] Unit/manual verification: icon persists through create/edit/backup
       export-import round-trip; widget correctly sets/reads `category_id`
       in all 4 locations
 

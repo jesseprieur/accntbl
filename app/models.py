@@ -104,11 +104,59 @@ class CreditCard(db.Model):
         return None
 
 
+CATEGORY_ICON_CHOICES = [
+    "bi-cart",
+    "bi-cart3",
+    "bi-bag",
+    "bi-basket",
+    "bi-shop",
+    "bi-house",
+    "bi-house-door",
+    "bi-key",
+    "bi-tools",
+    "bi-lightning-charge",
+    "bi-droplet",
+    "bi-wifi",
+    "bi-phone",
+    "bi-car-front",
+    "bi-fuel-pump",
+    "bi-bus-front",
+    "bi-airplane",
+    "bi-suitcase",
+    "bi-heart-pulse",
+    "bi-capsule",
+    "bi-hospital",
+    "bi-cup-hot",
+    "bi-cup-straw",
+    "bi-egg-fried",
+    "bi-film",
+    "bi-controller",
+    "bi-music-note-beamed",
+    "bi-ticket-perforated",
+    "bi-mortarboard",
+    "bi-book",
+    "bi-briefcase",
+    "bi-piggy-bank",
+    "bi-bank",
+    "bi-cash-coin",
+    "bi-credit-card",
+    "bi-gift",
+    "bi-balloon",
+    "bi-person-hearts",
+    "bi-people",
+    "bi-emoji-smile",
+    "bi-paw",
+    "bi-tree",
+    "bi-umbrella",
+]
+
+
 class Category(db.Model):
     __tablename__ = "categories"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
+    icon = db.Column(db.String(64), nullable=True)
 
     def deletion_blocker(self):
         """Return a reason this category can't be deleted, or None if it can.

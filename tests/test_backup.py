@@ -55,7 +55,7 @@ def _seed_sample_data():
     )
     db.session.add(override)
 
-    housing = Category(name="Housing")
+    housing = Category(name="Housing", icon="bi-house-door")
     db.session.add(housing)
     db.session.flush()
 
@@ -214,6 +214,7 @@ def test_import_round_trip_matches_original_data(app):
 
         assert {c.name for c in Category.query.all()} == {"Housing"}
         housing = Category.query.filter_by(name="Housing").one()
+        assert housing.icon == "bi-house-door"
 
         series = RecurringSeries.query.one()
         assert series.name == "Rent"

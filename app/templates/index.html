@@ -57,12 +57,7 @@
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="add-transaction-nws-savings" value="savings">
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-nws-savings">Savings</label>
               </div>
-              <select class="form-select form-select-sm" name="category_id">
-                <option value="" selected>Category</option>
-                {% for category in categories %}
-                  <option value="{{ category.id }}">{{ category.name }}</option>
-                {% endfor %}
-              </select>
+              <div class="flex-grow-1" data-category-picker data-category-picker-name="category_id"></div>
             </div>
             <div class="mb-2">
               <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes">

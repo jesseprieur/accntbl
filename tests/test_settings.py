@@ -430,3 +430,66 @@ def test_delete_unreferenced_category_removes_it(client, app):
 
     with app.app_context():
         assert Category.query.get(category_id) is None
+
+
+def test_create_category_with_valid_icon_persists_it(client, app):
+    response = client.post(
+        "/settings/categories", data={"name": "Groceries", "icon": "bi-cart"}
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.filter_by(name="Groceries").one().icon == "bi-cart"
+
+
+def test_create_category_rejects_invalid_icon(client, app):
+    response = client.post(
+        "/settings/categories", data={"name": "Groceries", "icon": "bi-not-a-real-icon"}
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.filter_by(name="Groceries").first() is None
+
+
+def test_create_category_without_icon_defaults_to_none(client, app):
+    client.post("/settings/categories", data={"name": "Groceries"})
+
+    with app.app_context():
+        assert Category.query.filter_by(name="Groceries").one().icon is None
+
+
+def test_update_category_changes_name_and_icon(client, app):
+    with app.app_context():
+        category = Category(name="Groceries")
+        db.session.add(category)
+        db.session.commit()
+        category_id = category.id
+
+    response = client.post(
+        f"/settings/categories/{category_id}",
+        data={"name": "Food", "icon": "bi-egg-fried"},
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        updated = Category.query.get(category_id)
+        assert updated.name == "Food"
+        assert updated.icon == "bi-egg-fried"
+
+
+def test_update_category_rejects_duplicate_name(client, app):
+    with app.app_context():
+        db.session.add(Category(name="Groceries"))
+        other = Category(name="Food")
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+
+    response = client.post(
+        f"/settings/categories/{other_id}", data={"name": "Groceries"}
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        assert Category.query.get(other_id).name == "Food"
