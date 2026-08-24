@@ -27,9 +27,9 @@ close date, which *does* hit your checking balance on its due date.
   Needs/Wants/Savings classification, a category, and optional notes.
 - **Needs/Wants/Savings and categories**: every transaction and recurring
   series carries a fixed Need/Want/Savings tag (defaults to Need) plus a
-  user-managed category label (defaults to `None`; add more on the Settings
-  page). Both are classification/reporting only — they don't affect the
-  running total or any other math.
+  category (defaults to `Uncategorized`; add more on the Settings page).
+  Both are classification/reporting only — they don't affect the running
+  total or any other math.
 - **Recurring items**: create a series (on the dedicated Recurring Series
   page) with a cadence (weekly, biweekly, monthly, semi-monthly, quarterly,
   yearly, or a custom "every N days/weeks/months") and it populates the
@@ -68,7 +68,11 @@ close date, which *does* hit your checking balance on its due date.
 
 ## Architecture
 
-- **Backend**: Python + Flask
+- **Backend**: Python + Flask, organized as one blueprint per resource
+  (transactions, recurring series, checking accounts, credit cards,
+  categories, backup, statistics, auth) rather than one large file per
+  layer; shared calculations (date/month arithmetic, money formatting)
+  live in dedicated service modules used by every feature that needs them.
 - **Database**: SQLite (single file on a persistent volume), accessed via
   SQLAlchemy, schema managed with Alembic
 - **Frontend**: server-rendered pages styled with Bootstrap, Ajax (fetch)
@@ -140,7 +144,7 @@ page at `/settings`.)
 2. Visit **Settings** to set up your checking account(s) starting balance,
    your credit card(s) (name, statement close day, payment due offset,
    starting balance, which one is the default), and any custom categories
-   you want beyond the default `None`.
+   you want beyond the default `Uncategorized`.
 3. On the main table, add one-off transactions, each with a
    Needs/Wants/Savings tag and category. Use the **Recurring Series** page
    to add/edit/delete recurring series (name, kind, amount or advanced
