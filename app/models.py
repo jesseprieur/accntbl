@@ -106,11 +106,9 @@ class CreditCard(db.Model):
 
 CATEGORY_ICON_CHOICES = [
     "bi-cart",
-    "bi-cart3",
-    "bi-bag",
+    "bi-cart-plus",
     "bi-basket",
     "bi-shop",
-    "bi-house",
     "bi-house-door",
     "bi-key",
     "bi-tools",
@@ -128,7 +126,7 @@ CATEGORY_ICON_CHOICES = [
     "bi-hospital",
     "bi-cup-hot",
     "bi-cup-straw",
-    "bi-egg-fried",
+    "bi-scooter",
     "bi-film",
     "bi-controller",
     "bi-music-note-beamed",
