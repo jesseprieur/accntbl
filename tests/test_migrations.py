@@ -47,7 +47,7 @@ def test_db_downgrade_dash_one_without_separator_is_misparsed_as_an_option(app, 
     assert "No such option" in result.output
 
 
-def test_db_downgrade_dash_one_with_separator_reverts_one_migration(app, runner):
+def test_db_downgrade_dash_one_with_separator_reverts_the_only_migration(app, runner):
     # This is the syntax README.md actually documents:
     # `flask db downgrade -- -1`
     runner.invoke(args=["db", "upgrade"])
@@ -58,22 +58,13 @@ def test_db_downgrade_dash_one_with_separator_reverts_one_migration(app, runner)
     with app.app_context():
         inspector = inspect(db.engine)
         actual_tables = set(inspector.get_table_names())
-        recurring_series_columns = {
-            c["name"]: c for c in inspector.get_columns("recurring_series")
-        }
-        category_columns = {
-            c["name"]: c for c in inspector.get_columns("categories")
-        }
 
-    # One step back from head only reverts the latest migration (seed
-    # Uncategorized + enforce category_id not null), not every migration
-    # back to base.
-    assert "recurring_series" in actual_tables
-    assert "category_id" in recurring_series_columns
-    assert recurring_series_columns["category_id"]["nullable"] is True
-    assert "amount_logic" in recurring_series_columns
-    assert "is_system" not in category_columns
-    assert "icon" in category_columns
+    model_tables = set(db.metadata.tables.keys())
+    # The schema is a single migration (see
+    # migrations/versions/8b1c4f9a2e3d_create_full_schema.py), so "one step
+    # back" reverts all the way to base — this test exists to guard the
+    # `-- -1` CLI syntax itself, not incremental-migration behavior.
+    assert not (model_tables & actual_tables)
 
 
 def test_db_downgrade_to_base_reverts_all_tables(app, runner):
