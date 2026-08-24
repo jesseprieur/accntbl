@@ -4,14 +4,22 @@ See specs.md's "Statistics page" section: for each of three forward-looking
 windows (3/6/12 months), find the min and max cash running total (and the
 date each occurs on) within `[today, today + window]`, reusing the existing
 running-total calculator.
+
+Also implements the Needs/Wants/Savings/Leftover and spend-by-category
+breakdown tables (specs.md §§ "Needs/Wants/Savings/Leftover breakdown
+(Statistics page)" and "Spend-by-category breakdown (Statistics page)").
 """
 import calendar
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
+from app.models import Kind, NeedsWantsSavings, OccurrenceStatus
 from app.services.running_total import compute_running_total
 
 WINDOW_MONTHS = (3, 6, 12)
+BREAKDOWN_MONTH_COUNT = 12
 
 
 def _add_months(d, months):
@@ -78,3 +86,182 @@ def compute_running_total_extremes(
             )
         )
     return results
+
+
+def rolling_12_months(today):
+    """Return the 12 first-of-month dates starting with `today`'s month."""
+    start = today.replace(day=1)
+    return [_add_months(start, i) for i in range(BREAKDOWN_MONTH_COUNT)]
+
+
+def _month_bounds(month_start):
+    last_day = calendar.monthrange(month_start.year, month_start.month)[1]
+    return month_start, month_start.replace(day=last_day)
+
+
+def _in_breakdown_scope(transaction, month_start, month_end):
+    """Both breakdown tables share this scope: real cash/credit transactions
+
+    dated within the month, excluding skipped occurrences. Generated CC
+    payment-due rows and month-end virtual rows are never included since
+    they aren't `Transaction` rows at all.
+    """
+    return (
+        transaction.kind in (Kind.cash, Kind.credit)
+        and transaction.occurrence_status != OccurrenceStatus.skipped
+        and month_start <= transaction.date <= month_end
+    )
+
+
+@dataclass(frozen=True)
+class NeedsWantsSavingsBreakdown:
+    income: Decimal
+    needs: Decimal
+    wants: Decimal
+    savings: Decimal
+    leftover: Decimal
+    pct_income: Decimal
+    pct_needs: Decimal
+    pct_wants: Decimal
+    pct_savings: Decimal
+    pct_leftover: Decimal
+
+
+def _nws_dollars_for_month(transactions, month_start, month_end):
+    income = needs = wants = savings = Decimal("0")
+    for t in transactions:
+        if not _in_breakdown_scope(t, month_start, month_end):
+            continue
+        if t.amount > 0:
+            income += t.amount
+        else:
+            magnitude = -t.amount
+            if t.needs_wants_savings == NeedsWantsSavings.need:
+                needs += magnitude
+            elif t.needs_wants_savings == NeedsWantsSavings.want:
+                wants += magnitude
+            elif t.needs_wants_savings == NeedsWantsSavings.savings:
+                savings += magnitude
+    return income, needs, wants, savings
+
+
+def _nws_breakdown_from_dollars(income, needs, wants, savings):
+    leftover = income - (needs + wants + savings)
+    if income == 0:
+        pct_income = pct_needs = pct_wants = pct_savings = pct_leftover = None
+    else:
+        pct_income = Decimal("100")
+        pct_needs = (needs / income) * 100
+        pct_wants = (wants / income) * 100
+        pct_savings = (savings / income) * 100
+        pct_leftover = (leftover / income) * 100
+    return NeedsWantsSavingsBreakdown(
+        income=income,
+        needs=needs,
+        wants=wants,
+        savings=savings,
+        leftover=leftover,
+        pct_income=pct_income,
+        pct_needs=pct_needs,
+        pct_wants=pct_wants,
+        pct_savings=pct_savings,
+        pct_leftover=pct_leftover,
+    )
+
+
+def compute_needs_wants_savings_breakdown(transactions, today, month=None):
+    """Compute the Income/Needs/Wants/Savings/Leftover breakdown.
+
+    `month` is a first-of-month `date` from `rolling_12_months(today)`, or
+    `None` to compute the "Average" option (mean dollar value per bucket
+    across the rolling 12-month window, with `%` derived from those averaged
+    dollars — see specs.md).
+    """
+    if month is None:
+        months = rolling_12_months(today)
+        totals = [Decimal("0")] * 4
+        for month_start in months:
+            month_end = _month_bounds(month_start)[1]
+            dollars = _nws_dollars_for_month(transactions, month_start, month_end)
+            totals = [total + value for total, value in zip(totals, dollars)]
+        income, needs, wants, savings = (total / len(months) for total in totals)
+    else:
+        month_start, month_end = _month_bounds(month)
+        income, needs, wants, savings = _nws_dollars_for_month(
+            transactions, month_start, month_end
+        )
+    return _nws_breakdown_from_dollars(income, needs, wants, savings)
+
+
+@dataclass(frozen=True)
+class CategorySpendRow:
+    category_id: int
+    name: str
+    icon: str
+    value: Decimal
+    pct: Decimal
+
+
+def _spend_by_category_for_month(transactions, month_start, month_end):
+    sums = defaultdict(lambda: Decimal("0"))
+    for t in transactions:
+        if not _in_breakdown_scope(t, month_start, month_end):
+            continue
+        if t.amount >= 0:
+            continue
+        sums[t.category_id] += -t.amount
+    return sums
+
+
+def compute_spend_by_category_breakdown(transactions, categories, today, month=None):
+    """Compute the per-category spend breakdown.
+
+    `month` is a first-of-month `date` from `rolling_12_months(today)`, or
+    `None` for the "Average" option (mean dollar value per category across
+    the rolling 12-month window). Returns one `CategorySpendRow` per
+    category plus a fixed `category_id=None` "None" row, sorted by
+    descending value.
+    """
+    if month is None:
+        months = rolling_12_months(today)
+        combined = defaultdict(lambda: Decimal("0"))
+        for month_start in months:
+            month_end = _month_bounds(month_start)[1]
+            for category_id, value in _spend_by_category_for_month(
+                transactions, month_start, month_end
+            ).items():
+                combined[category_id] += value
+        sums = {
+            category_id: value / len(months) for category_id, value in combined.items()
+        }
+    else:
+        month_start, month_end = _month_bounds(month)
+        sums = _spend_by_category_for_month(transactions, month_start, month_end)
+
+    total = sum(sums.values(), Decimal("0"))
+
+    def pct(value):
+        return (value / total) * 100 if total > 0 else None
+
+    rows = [
+        CategorySpendRow(
+            category_id=category.id,
+            name=category.name,
+            icon=category.icon,
+            value=sums.get(category.id, Decimal("0")),
+            pct=pct(sums.get(category.id, Decimal("0"))),
+        )
+        for category in categories
+    ]
+    none_value = sums.get(None, Decimal("0"))
+    rows.append(
+        CategorySpendRow(
+            category_id=None,
+            name="None",
+            icon=None,
+            value=none_value,
+            pct=pct(none_value),
+        )
+    )
+    rows.sort(key=lambda row: row.value, reverse=True)
+    return rows

@@ -33,4 +33,55 @@
       {% endfor %}
     </tbody>
   </table>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 mt-5">
+    <h2 class="h5 mb-0">Needs / Wants / Savings / Leftover</h2>
+    <select id="statistics-month-select" class="form-select form-select-sm w-auto">
+      {% for option in month_options %}
+        <option value="{{ option.value }}" {{ "selected" if option.value == selected_month_value }}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Bucket</th>
+        <th>Value</th>
+        <th>%</th>
+      </tr>
+    </thead>
+    <tbody id="needs-wants-savings-body">
+      {% for row in needs_wants_savings.rows %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td>{{ row.value }}</td>
+          <td>{{ row.pct }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 class="h5 mb-3 mt-5">Spend by category</h2>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Value</th>
+        <th>%</th>
+      </tr>
+    </thead>
+    <tbody id="spend-by-category-body">
+      {% for row in spend_by_category.rows %}
+        <tr>
+          <td>{% if row.icon %}<i class="bi {{ row.icon }} me-1"></i>{% endif %}{{ row.name }}</td>
+          <td>{{ row.value }}</td>
+          <td>{{ row.pct }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/statistics.js') }}"></script>
 {% endblock %}

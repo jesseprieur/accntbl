@@ -116,3 +116,76 @@ def test_statistics_nav_link_present_on_other_pages(client):
     for path in ("/", "/recurring-series", "/settings/"):
         body = client.get(path).get_data(as_text=True)
         assert 'href="/statistics"' in body
+
+
+def test_statistics_page_renders_breakdown_tables_and_month_dropdown(client):
+    response = client.get("/statistics")
+    body = response.get_data(as_text=True)
+
+    assert 'id="statistics-month-select"' in body
+    assert 'id="needs-wants-savings-body"' in body
+    assert 'id="spend-by-category-body"' in body
+    assert '<option value="average"' in body
+    assert "statistics.js" in body
+
+
+def test_statistics_breakdown_endpoint_returns_needs_wants_savings_and_category_data(app, client):
+    import datetime as dt
+
+    from app.extensions import db
+    from app.models import Category, Kind, NeedsWantsSavings, Transaction
+
+    today = dt.date.today()
+    month_value = today.strftime("%Y-%m")
+
+    with app.app_context():
+        category = Category(name="Groceries", icon="bi-cart")
+        db.session.add(category)
+        db.session.commit()
+        db.session.add_all(
+            [
+                Transaction(
+                    name="Paycheck",
+                    kind=Kind.cash,
+                    amount="2000.00",
+                    date=today,
+                    needs_wants_savings=NeedsWantsSavings.need,
+                ),
+                Transaction(
+                    name="Groceries",
+                    kind=Kind.cash,
+                    amount="-150.00",
+                    date=today,
+                    needs_wants_savings=NeedsWantsSavings.need,
+                    category_id=category.id,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    response = client.get(f"/statistics/breakdown?month={month_value}")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    nws_rows = {row["label"]: row for row in data["needs_wants_savings"]["rows"]}
+    assert nws_rows["Income"]["value"] == "$2,000.00"
+    assert nws_rows["Needs"]["value"] == "$150.00"
+    assert nws_rows["Leftover"]["value"] == "$1,850.00"
+
+    category_rows = {row["name"]: row for row in data["spend_by_category"]["rows"]}
+    assert category_rows["Groceries"]["value"] == "$150.00"
+    assert category_rows["None"]["value"] == "$0.00"
+
+
+def test_statistics_breakdown_endpoint_average_option(client):
+    response = client.get("/statistics/breakdown?month=average")
+    assert response.status_code == 200
+    data = response.get_json()
+
+    assert {row["label"] for row in data["needs_wants_savings"]["rows"]} == {
+        "Income",
+        "Needs",
+        "Wants",
+        "Savings",
+        "Leftover",
+    }

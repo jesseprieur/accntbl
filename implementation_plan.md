@@ -195,23 +195,23 @@ grouped at the bottom.
 
 ### Needs/Wants/Savings/Leftover breakdown
 (see specs.md § "Needs/Wants/Savings/Leftover breakdown (Statistics page)")
-- [ ] Backend calculation: given a target month (or "average" across the
+- [x] Backend calculation: given a target month (or "average" across the
       rolling 12-month-forward window), compute Income/Needs/Wants/Savings/
       Leftover from `kind=cash` and `kind=credit` transactions dated in that
       month (excluding skipped occurrences, CC payment-due rows, and
       month-end virtual rows), plus each bucket's `%` of Income
-- [ ] Month dropdown: current month + next 11 months, plus an "Average"
+- [x] Month dropdown: current month + next 11 months, plus an "Average"
       entry
-- [ ] Ajax endpoint + JS wiring: selecting a dropdown entry re-renders the
+- [x] Ajax endpoint + JS wiring: selecting a dropdown entry re-renders the
       breakdown table without a full page reload
-- [ ] Page template: breakdown table with one row per bucket (Income,
+- [x] Page template: breakdown table with one row per bucket (Income,
       Needs, Wants, Savings, Leftover, in that order), value column and `%`
       column
-- [ ] "Average" option: mean dollar value per bucket across the 12 months,
+- [x] "Average" option: mean dollar value per bucket across the 12 months,
       with `%` computed from the averaged dollars (not averaged `%`s)
-- [ ] Handle zero-Income months (display `%` as `—` for every row instead
+- [x] Handle zero-Income months (display `%` as `—` for every row instead
       of dividing by zero; Income's `%` is otherwise always `100%`)
-- [ ] Unit tests: Income/Needs/Wants/Savings/Leftover correctness for a
+- [x] Unit tests: Income/Needs/Wants/Savings/Leftover correctness for a
       month with only cash, only credit, and mixed transactions; skipped
       occurrences excluded; CC due rows and month-end rows excluded;
       zero-Income month percentage handling; Average calculation across the
@@ -219,22 +219,22 @@ grouped at the bottom.
 
 ### Spend-by-category breakdown
 (see specs.md § "Spend-by-category breakdown (Statistics page)")
-- [ ] Backend calculation: given a target month (or "average"), sum
+- [x] Backend calculation: given a target month (or "average"), sum
       negative-amount `kind=cash`/`kind=credit` transactions per
       `category_id` (plus a `None` bucket for `category_id IS NULL`),
       excluding skipped occurrences, CC due rows, and month-end rows;
       positive amounts excluded from sums and from the `%` denominator
-- [ ] Wire the existing month dropdown (from the Needs/Wants/Savings/
+- [x] Wire the existing month dropdown (from the Needs/Wants/Savings/
       Leftover breakdown) to also re-render this table on selection, so one
       dropdown drives both tables
-- [ ] Page template: one row per category + a fixed "None" row, value and
+- [x] Page template: one row per category + a fixed "None" row, value and
       `%` columns, sorted by descending value
-- [ ] Every category (and "None") always renders as a row, even at
+- [x] Every category (and "None") always renders as a row, even at
       $0/`—` for months with no spend in that category
-- [ ] "Average" option: mean dollar value per category/None across the
+- [x] "Average" option: mean dollar value per category/None across the
       12-month window, with `%` computed from the averaged dollars
-- [ ] Handle zero-total-spend months (display `%` as `—`)
-- [ ] Unit tests: per-category sums correct for cash/credit/mixed
+- [x] Handle zero-total-spend months (display `%` as `—`)
+- [x] Unit tests: per-category sums correct for cash/credit/mixed
       transactions; positive amounts excluded from sums and denominator;
       `None` bucket correctness; categories with no spend still render;
       zero-spend-month percentage handling; Average calculation; category
