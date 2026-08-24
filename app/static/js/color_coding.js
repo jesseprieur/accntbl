@@ -3,13 +3,13 @@
 // and also required directly from a Node-based unit test.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
-    module.exports = factory();
+    module.exports = factory(require("./currency.js"));
   } else {
-    root.ColorCoding = factory();
+    root.ColorCoding = factory(root.Currency);
   }
-})(typeof self !== "undefined" ? self : this, function () {
+})(typeof self !== "undefined" ? self : this, function (Currency) {
   function formatAmount(value) {
-    return value ? Number(value).toFixed(2) : "";
+    return value ? Currency.format(value) : "";
   }
 
   function amountClass(value) {

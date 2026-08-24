@@ -231,13 +231,17 @@ def test_needs_wants_savings_breakdown_average_uses_averaged_dollars():
 
 def test_spend_by_category_sums_and_excludes_positive_amounts():
     today = dt.date(2026, 1, 1)
-    categories = [make_category(1, "Groceries"), make_category(2, "Rent")]
+    categories = [
+        make_category(1, "Groceries"),
+        make_category(2, "Rent"),
+        make_category(3, "Uncategorized"),
+    ]
     transactions = [
         make_full_transaction(dt.date(2026, 1, 5), 5000, category_id=1),  # income, excluded
         make_full_transaction(dt.date(2026, 1, 6), -100, category_id=1),
         make_full_transaction(dt.date(2026, 1, 7), -50, category_id=1, kind=Kind.credit),
         make_full_transaction(dt.date(2026, 1, 8), -1000, category_id=2),
-        make_full_transaction(dt.date(2026, 1, 9), -25, category_id=None),
+        make_full_transaction(dt.date(2026, 1, 9), -25, category_id=3),
     ]
 
     rows = compute_spend_by_category_breakdown(transactions, categories, today, dt.date(2026, 1, 1))
@@ -245,12 +249,12 @@ def test_spend_by_category_sums_and_excludes_positive_amounts():
 
     assert by_id[1].value == Decimal("150")
     assert by_id[2].value == Decimal("1000")
-    assert by_id[None].value == Decimal("25")
-    assert by_id[None].name == "None"
+    assert by_id[3].value == Decimal("25")
+    assert by_id[3].name == "Uncategorized"
     total = Decimal("150") + Decimal("1000") + Decimal("25")
     assert by_id[2].pct == (Decimal("1000") / total) * 100
     # Sorted by descending value.
-    assert [row.category_id for row in rows] == [2, 1, None]
+    assert [row.category_id for row in rows] == [2, 1, 3]
 
 
 def test_spend_by_category_always_includes_categories_with_no_spend():

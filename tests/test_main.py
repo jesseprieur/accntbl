@@ -174,7 +174,7 @@ def test_statistics_breakdown_endpoint_returns_needs_wants_savings_and_category_
 
     category_rows = {row["name"]: row for row in data["spend_by_category"]["rows"]}
     assert category_rows["Groceries"]["value"] == "$150.00"
-    assert category_rows["None"]["value"] == "$0.00"
+    assert category_rows["Uncategorized"]["value"] == "$0.00"
 
 
 def test_statistics_breakdown_endpoint_average_option(client):

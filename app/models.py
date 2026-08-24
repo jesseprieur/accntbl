@@ -2,6 +2,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
+from sqlalchemy import event
 
 from app.extensions import db
 
@@ -157,14 +158,26 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
     icon = db.Column(db.String(64), nullable=True)
+    # True only for the seeded "Uncategorized" row (see the after_create
+    # event below and specs.md § `categories`) — the permanent fallback
+    # every transaction/series category_id defaults to, not a regular
+    # user-managed category.
+    is_system = db.Column(db.Boolean, nullable=False, default=False)
+
+    @classmethod
+    def get_uncategorized(cls):
+        return cls.query.filter_by(is_system=True).first()
 
     def deletion_blocker(self):
         """Return a reason this category can't be deleted, or None if it can.
 
         Mirrors CreditCard.deletion_blocker (see specs.md § `categories`):
         any category still referenced by a transaction/series must be
-        reassigned (or unset) first.
+        reassigned first, and the system "Uncategorized" row can never be
+        deleted at all.
         """
+        if self.is_system:
+            return "The Uncategorized category cannot be deleted."
         if Transaction.query.filter_by(category_id=self.id).count() > 0 or (
             RecurringSeries.query.filter_by(category_id=self.id).count() > 0
         ):
@@ -173,6 +186,20 @@ class Category(db.Model):
                 "transactions or recurring series. Reassign them first."
             )
         return None
+
+
+@event.listens_for(Category.__table__, "after_create")
+def _seed_uncategorized_category(target, connection, **kwargs):
+    """Seed the permanent "Uncategorized" row whenever the `categories`
+    table is created via `db.create_all()` (tests, ad hoc scripts).
+
+    Real deployments create this table via Alembic migrations instead,
+    which don't fire SQLAlchemy DDL events — that path seeds the row with
+    an explicit `INSERT` in the migration itself.
+    """
+    connection.execute(
+        target.insert().values(name="Uncategorized", icon="bi-tag", is_system=True)
+    )
 
 
 class CreditDueOverride(db.Model):
@@ -192,7 +219,25 @@ class CreditDueOverride(db.Model):
     credit_card = db.relationship("CreditCard")
 
 
-class RecurringSeries(db.Model):
+class BudgetClassificationMixin:
+    """Shared `needs_wants_savings` + `category_id` columns, applied to both
+    `Transaction` and `RecurringSeries` (see specs.md § "Budget
+    classification"). A code-sharing device only — each row's
+    classification is still independent between the two models.
+    """
+
+    needs_wants_savings = db.Column(
+        db.Enum(NeedsWantsSavings), nullable=False, default=NeedsWantsSavings.need
+    )
+    category_id = db.Column(
+        db.Integer,
+        db.ForeignKey("categories.id"),
+        nullable=False,
+        default=lambda: Category.get_uncategorized().id,
+    )
+
+
+class RecurringSeries(BudgetClassificationMixin, db.Model):
     __tablename__ = "recurring_series"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -209,21 +254,13 @@ class RecurringSeries(db.Model):
         db.Integer, db.ForeignKey("credit_cards.id"), nullable=True
     )
     amount_logic = db.Column(db.JSON, nullable=True)
-    needs_wants_savings = db.Column(
-        db.Enum(NeedsWantsSavings), nullable=False, default=NeedsWantsSavings.need
-    )
-    category_id = db.Column(
-        db.Integer,
-        db.ForeignKey("categories.id"),
-        nullable=True,
-    )
 
     transactions = db.relationship("Transaction", back_populates="recurring_series")
     credit_card = db.relationship("CreditCard")
     category = db.relationship("Category")
 
 
-class Transaction(db.Model):
+class Transaction(BudgetClassificationMixin, db.Model):
     __tablename__ = "transactions"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -240,14 +277,6 @@ class Transaction(db.Model):
     )
     credit_card_id = db.Column(
         db.Integer, db.ForeignKey("credit_cards.id"), nullable=True
-    )
-    needs_wants_savings = db.Column(
-        db.Enum(NeedsWantsSavings), nullable=False, default=NeedsWantsSavings.need
-    )
-    category_id = db.Column(
-        db.Integer,
-        db.ForeignKey("categories.id"),
-        nullable=True,
     )
 
     recurring_series = db.relationship("RecurringSeries", back_populates="transactions")

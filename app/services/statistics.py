@@ -9,25 +9,18 @@ Also implements the Needs/Wants/Savings/Leftover and spend-by-category
 breakdown tables (specs.md §§ "Needs/Wants/Savings/Leftover breakdown
 (Statistics page)" and "Spend-by-category breakdown (Statistics page)").
 """
-import calendar
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
 from app.models import Kind, NeedsWantsSavings, OccurrenceStatus
+from app.services.dates import add_months, month_bounds, rolling_months
+from app.services.formatting import format_money, format_pct
 from app.services.running_total import compute_running_total
 
 WINDOW_MONTHS = (3, 6, 12)
 BREAKDOWN_MONTH_COUNT = 12
-
-
-def _add_months(d, months):
-    month_index = d.month - 1 + months
-    year = d.year + month_index // 12
-    month = month_index % 12 + 1
-    day = min(d.day, calendar.monthrange(year, month)[1])
-    return d.replace(year=year, month=month, day=day)
 
 
 @dataclass(frozen=True)
@@ -52,7 +45,7 @@ def compute_running_total_extremes(
     Ties on the extreme value within a window resolve to the earliest
     occurring date, matching specs.md.
     """
-    window_ends = [_add_months(today, months) for months in WINDOW_MONTHS]
+    window_ends = [add_months(today, months) for months in WINDOW_MONTHS]
     range_start = min([t.date for t in transactions] + [today])
 
     ledger = compute_running_total(
@@ -90,13 +83,49 @@ def compute_running_total_extremes(
 
 def rolling_12_months(today):
     """Return the 12 first-of-month dates starting with `today`'s month."""
-    start = today.replace(day=1)
-    return [_add_months(start, i) for i in range(BREAKDOWN_MONTH_COUNT)]
+    return rolling_months(today, BREAKDOWN_MONTH_COUNT)
 
 
-def _month_bounds(month_start):
-    last_day = calendar.monthrange(month_start.year, month_start.month)[1]
-    return month_start, month_start.replace(day=last_day)
+def month_options(months):
+    options = [{"value": m.strftime("%Y-%m"), "label": m.strftime("%B %Y")} for m in months]
+    options.append({"value": "average", "label": "Average"})
+    return options
+
+
+def parse_month_selection(value, months):
+    if value == "average":
+        return None
+    for month in months:
+        if value == month.strftime("%Y-%m"):
+            return month
+    return months[0]
+
+
+def serialize_nws_breakdown(breakdown):
+    return {
+        "rows": [
+            {"label": "Income", "value": format_money(breakdown.income), "pct": format_pct(breakdown.pct_income)},
+            {"label": "Needs", "value": format_money(breakdown.needs), "pct": format_pct(breakdown.pct_needs)},
+            {"label": "Wants", "value": format_money(breakdown.wants), "pct": format_pct(breakdown.pct_wants)},
+            {"label": "Savings", "value": format_money(breakdown.savings), "pct": format_pct(breakdown.pct_savings)},
+            {"label": "Leftover", "value": format_money(breakdown.leftover), "pct": format_pct(breakdown.pct_leftover)},
+        ]
+    }
+
+
+def serialize_category_rows(rows):
+    return {
+        "rows": [
+            {
+                "category_id": row.category_id,
+                "name": row.name,
+                "icon": row.icon,
+                "value": format_money(row.value),
+                "pct": format_pct(row.pct),
+            }
+            for row in rows
+        ]
+    }
 
 
 def _in_breakdown_scope(transaction, month_start, month_end):
@@ -181,12 +210,12 @@ def compute_needs_wants_savings_breakdown(transactions, today, month=None):
         months = rolling_12_months(today)
         totals = [Decimal("0")] * 4
         for month_start in months:
-            month_end = _month_bounds(month_start)[1]
+            month_end = month_bounds(month_start)[1]
             dollars = _nws_dollars_for_month(transactions, month_start, month_end)
             totals = [total + value for total, value in zip(totals, dollars)]
         income, needs, wants, savings = (total / len(months) for total in totals)
     else:
-        month_start, month_end = _month_bounds(month)
+        month_start, month_end = month_bounds(month)
         income, needs, wants, savings = _nws_dollars_for_month(
             transactions, month_start, month_end
         )
@@ -219,14 +248,15 @@ def compute_spend_by_category_breakdown(transactions, categories, today, month=N
     `month` is a first-of-month `date` from `rolling_12_months(today)`, or
     `None` for the "Average" option (mean dollar value per category across
     the rolling 12-month window). Returns one `CategorySpendRow` per
-    category plus a fixed `category_id=None` "None" row, sorted by
-    descending value.
+    category (every transaction's `category_id` is non-nullable, so
+    `categories` already includes `Uncategorized` — no separate bucket is
+    needed), sorted by descending value.
     """
     if month is None:
         months = rolling_12_months(today)
         combined = defaultdict(lambda: Decimal("0"))
         for month_start in months:
-            month_end = _month_bounds(month_start)[1]
+            month_end = month_bounds(month_start)[1]
             for category_id, value in _spend_by_category_for_month(
                 transactions, month_start, month_end
             ).items():
@@ -235,7 +265,7 @@ def compute_spend_by_category_breakdown(transactions, categories, today, month=N
             category_id: value / len(months) for category_id, value in combined.items()
         }
     else:
-        month_start, month_end = _month_bounds(month)
+        month_start, month_end = month_bounds(month)
         sums = _spend_by_category_for_month(transactions, month_start, month_end)
 
     total = sum(sums.values(), Decimal("0"))
@@ -253,15 +283,5 @@ def compute_spend_by_category_breakdown(transactions, categories, today, month=N
         )
         for category in categories
     ]
-    none_value = sums.get(None, Decimal("0"))
-    rows.append(
-        CategorySpendRow(
-            category_id=None,
-            name="None",
-            icon=None,
-            value=none_value,
-            pct=pct(none_value),
-        )
-    )
     rows.sort(key=lambda row: row.value, reverse=True)
     return rows

@@ -23,7 +23,7 @@
   function perMonthLabel(series) {
     const value = Number(series.per_month);
     if (Number.isNaN(value)) return series.per_month;
-    return value.toFixed(2);
+    return Currency.format(value);
   }
 
   function buildRow(series) {

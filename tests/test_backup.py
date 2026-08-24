@@ -158,7 +158,7 @@ def test_export_produces_valid_complete_snapshot(app):
         assert len(snapshot["credit_due_overrides"]) == 1
         assert len(snapshot["recurring_series"]) == 1
         exported_category_names = {row["name"] for row in snapshot["categories"]}
-        assert exported_category_names == {"Housing"}
+        assert exported_category_names == {"Housing", "Uncategorized"}
 
         rent_series = snapshot["recurring_series"][0]
         assert rent_series["needs_wants_savings"] == "want"
@@ -212,7 +212,7 @@ def test_import_round_trip_matches_original_data(app):
         assert override.amount == Decimal("-300.00")
         assert override.credit_card_id == card.id
 
-        assert {c.name for c in Category.query.all()} == {"Housing"}
+        assert {c.name for c in Category.query.all()} == {"Housing", "Uncategorized"}
         housing = Category.query.filter_by(name="Housing").one()
         assert housing.icon == "bi-house-door"
 

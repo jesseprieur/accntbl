@@ -41,9 +41,7 @@
     return date.toISOString().slice(0, 10);
   }
 
-  function formatAmount(value) {
-    return value ? Number(value).toFixed(2) : "";
-  }
+  const formatAmount = ColorCoding.formatAmount;
 
   function spanWithClass(formatted, cls) {
     return `<span class="${cls}">${formatted}</span>`;

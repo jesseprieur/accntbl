@@ -8,7 +8,7 @@
     <div>
       <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#add-transaction-modal"><i class="bi bi-plus-lg"></i> Add transaction</button>
       <a href="{{ url_for('main.recurring_series') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-repeat"></i> Recurring Series</a>
-      <a href="{{ url_for('main.statistics') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bar-chart"></i> Statistics</a>
+      <a href="{{ url_for('statistics.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bar-chart"></i> Statistics</a>
       <a href="{{ url_for('settings.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-gear"></i> Settings</a>
       <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline">
         <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right"></i> Log out</button>
@@ -58,7 +58,7 @@
                 <input type="radio" class="btn-check" name="needs_wants_savings" id="add-transaction-nws-savings" value="savings">
                 <label class="btn btn-outline-primary btn-sm" for="add-transaction-nws-savings">Savings</label>
               </div>
-              <div class="flex-grow-1" data-category-picker data-category-picker-name="category_id"></div>
+              <div class="flex-grow-1" data-category-picker data-category-picker-name="category_id" data-category-picker-selected="{{ default_category_id or '' }}"></div>
             </div>
             <div class="mb-2">
               <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes">

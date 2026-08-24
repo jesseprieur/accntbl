@@ -24,7 +24,7 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3">Settings</h1>
     <div>
-      <a href="{{ url_for('main.statistics') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bar-chart"></i> Statistics</a>
+      <a href="{{ url_for('statistics.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bar-chart"></i> Statistics</a>
       <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
     </div>
   </div>
@@ -50,8 +50,8 @@
             <button type="submit" form="delete-account-{{ account.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
           </td>
         </tr>
-        <form id="edit-account-{{ account.id }}" method="post" action="{{ url_for('settings.update_checking_account', account_id=account.id) }}"></form>
-        <form id="delete-account-{{ account.id }}" method="post" action="{{ url_for('settings.delete_checking_account', account_id=account.id) }}"></form>
+        <form id="edit-account-{{ account.id }}" method="post" action="{{ url_for('checking_accounts.update', account_id=account.id) }}"></form>
+        <form id="delete-account-{{ account.id }}" method="post" action="{{ url_for('checking_accounts.delete', account_id=account.id) }}"></form>
       {% endfor %}
       <tr>
         <td><input type="text" form="create-account" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
@@ -59,7 +59,7 @@
         <td><input type="date" form="create-account" class="form-control form-control-sm" name="as_of_date" id="create-account-as-of-date" required></td>
         <td><button type="submit" form="create-account" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
       </tr>
-      <form id="create-account" method="post" action="{{ url_for('settings.create_checking_account') }}"></form>
+      <form id="create-account" method="post" action="{{ url_for('checking_accounts.create') }}"></form>
     </tbody>
   </table>
 
@@ -94,9 +94,9 @@
             <button type="submit" form="delete-card-{{ card.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
           </td>
         </tr>
-        <form id="edit-card-{{ card.id }}" method="post" action="{{ url_for('settings.update_credit_card', card_id=card.id) }}"></form>
-        <form id="default-card-{{ card.id }}" method="post" action="{{ url_for('settings.set_default_credit_card', card_id=card.id) }}"></form>
-        <form id="delete-card-{{ card.id }}" method="post" action="{{ url_for('settings.delete_credit_card', card_id=card.id) }}"></form>
+        <form id="edit-card-{{ card.id }}" method="post" action="{{ url_for('credit_cards.update', card_id=card.id) }}"></form>
+        <form id="default-card-{{ card.id }}" method="post" action="{{ url_for('credit_cards.set_default', card_id=card.id) }}"></form>
+        <form id="delete-card-{{ card.id }}" method="post" action="{{ url_for('credit_cards.delete', card_id=card.id) }}"></form>
       {% endfor %}
       <tr>
         <td><input type="text" form="create-card" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
@@ -106,7 +106,7 @@
         <td></td>
         <td><button type="submit" form="create-card" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
       </tr>
-      <form id="create-card" method="post" action="{{ url_for('settings.create_credit_card') }}"></form>
+      <form id="create-card" method="post" action="{{ url_for('credit_cards.create') }}"></form>
     </tbody>
   </table>
 
@@ -129,28 +129,28 @@
             <button type="submit" form="delete-category-{{ category.id }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Remove</button>
           </td>
         </tr>
-        <form id="edit-category-{{ category.id }}" method="post" action="{{ url_for('settings.update_category', category_id=category.id) }}"></form>
-        <form id="delete-category-{{ category.id }}" method="post" action="{{ url_for('settings.delete_category', category_id=category.id) }}"></form>
+        <form id="edit-category-{{ category.id }}" method="post" action="{{ url_for('categories.update', category_id=category.id) }}"></form>
+        <form id="delete-category-{{ category.id }}" method="post" action="{{ url_for('categories.delete', category_id=category.id) }}"></form>
       {% endfor %}
       <tr>
         <td>{{ icon_picker("create-category", None) }}</td>
         <td><input type="text" form="create-category" class="form-control form-control-sm" name="name" placeholder="Name" required></td>
         <td><button type="submit" form="create-category" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> Add</button></td>
       </tr>
-      <form id="create-category" method="post" action="{{ url_for('settings.create_category') }}"></form>
+      <form id="create-category" method="post" action="{{ url_for('categories.create') }}"></form>
     </tbody>
   </table>
 
   <h2 class="h5 mt-4">Backup</h2>
   <div class="d-flex gap-2">
-    <a href="{{ url_for('settings.download_backup') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Download backup</a>
+    <a href="{{ url_for('backup.download') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Download backup</a>
     <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#restore-backup-modal"><i class="bi bi-upload"></i> Restore from backup</button>
   </div>
 
   <div class="modal fade" id="restore-backup-modal" tabindex="-1" aria-labelledby="restore-backup-modal-label" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <form method="post" action="{{ url_for('settings.restore_backup') }}" enctype="multipart/form-data">
+        <form method="post" action="{{ url_for('backup.restore') }}" enctype="multipart/form-data">
           <div class="modal-header">
             <h2 class="modal-title h5" id="restore-backup-modal-label">Restore from backup</h2>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -210,7 +210,7 @@
         const formData = new FormData();
         formData.append("backup_file", file);
 
-        fetch("{{ url_for('settings.validate_backup') }}", { method: "POST", body: formData })
+        fetch("{{ url_for('backup.validate') }}", { method: "POST", body: formData })
           .then((response) => response.json())
           .then((result) => {
             if (result.valid) {

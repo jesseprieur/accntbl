@@ -690,10 +690,11 @@ def test_create_one_off_transaction_defaults_needs_wants_savings_and_category(cl
     assert data["needs_wants_savings"] == "need"
 
     with app.app_context():
+        uncategorized_id = Category.get_uncategorized().id
         created = Transaction.query.get(data["id"])
         assert created.needs_wants_savings == NeedsWantsSavings.need
-        assert created.category_id is None
-        assert data["category_id"] is None
+        assert created.category_id == uncategorized_id
+        assert data["category_id"] == uncategorized_id
 
 
 def test_create_one_off_transaction_sets_needs_wants_savings_and_category(client, app):
@@ -750,7 +751,7 @@ def test_update_one_off_transaction_sets_needs_wants_savings_and_category(client
         assert updated.category_id == other_category_id
 
 
-def test_update_one_off_transaction_clears_category_with_empty_string(client, app):
+def test_update_one_off_transaction_resets_category_to_uncategorized_with_empty_string(client, app):
     with app.app_context():
         other_category = Category(name="Subscriptions")
         db.session.add(other_category)
@@ -765,15 +766,16 @@ def test_update_one_off_transaction_clears_category_with_empty_string(client, ap
         txn_id = txn.id
         txn.category_id = other_category.id
         db.session.commit()
+        uncategorized_id = Category.get_uncategorized().id
 
     response = client.patch(f"/transactions/{txn_id}", json={"category_id": ""})
     assert response.status_code == 200
     data = response.get_json()
-    assert data["category_id"] is None
+    assert data["category_id"] == uncategorized_id
 
     with app.app_context():
         updated = Transaction.query.get(txn_id)
-        assert updated.category_id is None
+        assert updated.category_id == uncategorized_id
 
 
 def test_window_returns_needs_wants_savings_and_category(client, app):
@@ -1236,6 +1238,10 @@ def test_get_series_returns_series_fields(client, app):
     response = client.get(f"/transactions/series/{series_id}")
     assert response.status_code == 200
     data = response.get_json()
+
+    with app.app_context():
+        uncategorized_id = Category.get_uncategorized().id
+
     assert data == {
         "id": series_id,
         "name": "Paycheck",
@@ -1250,7 +1256,7 @@ def test_get_series_returns_series_fields(client, app):
         "credit_card_id": None,
         "amount_logic": None,
         "needs_wants_savings": "need",
-        "category_id": None,
+        "category_id": uncategorized_id,
     }
 
 

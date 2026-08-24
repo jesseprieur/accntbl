@@ -4,7 +4,9 @@
 // Bootstrap dropdown instead, backed by a hidden `category_id` input so
 // existing save/read code (FormData.get("category_id"), table.js's
 // data-field loop, recurring_series.js's form.elements) keeps working
-// unchanged.
+// unchanged. Every transaction/series has a real category_id (defaulting
+// to "Uncategorized" — see specs.md § `categories`), so the menu never
+// needs a synthetic "no category" entry.
 (function () {
   const dataEl = document.getElementById("categories-data");
   const categories = dataEl ? JSON.parse(dataEl.textContent) : [];
@@ -26,9 +28,6 @@
   }
 
   function itemHtml(category) {
-    if (category == null) {
-      return '<li><a class="dropdown-item category-picker-item" href="#" data-category-id="">Category</a></li>';
-    }
     return `<li><a class="dropdown-item category-picker-item" href="#" data-category-id="${category.id}"><i class="bi ${iconFor(category)}"></i> ${Escape.html(category.name)}</a></li>`;
   }
 
@@ -36,7 +35,7 @@
     options = options || {};
     const name = options.name || "category_id";
     const selected = findCategory(selectedId);
-    const items = [itemHtml(null)].concat(categories.map(itemHtml)).join("");
+    const items = categories.map(itemHtml).join("");
     return (
       '<div class="dropdown category-picker">' +
       '<button class="btn btn-outline-secondary btn-sm dropdown-toggle w-100 text-start" type="button" data-bs-toggle="dropdown" aria-expanded="false">' +

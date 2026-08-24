@@ -371,9 +371,10 @@ def test_credit_card_settings_rejects_invalid_close_day(client, app):
         assert CreditCard.query.first() is None
 
 
-def test_no_categories_seeded_by_default(app):
+def test_only_uncategorized_is_seeded_by_default(app):
     with app.app_context():
-        assert Category.query.count() == 0
+        assert [c.name for c in Category.query.all()] == ["Uncategorized"]
+        assert Category.query.one().is_system is True
 
 
 def test_create_category(client, app):
