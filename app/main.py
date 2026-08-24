@@ -1,9 +1,11 @@
 import json
+from datetime import date
 
 from flask import Blueprint, render_template
 
 from app.auth import login_required
-from app.models import Category, CreditCard
+from app.models import Category, CheckingAccount, CreditCard, CreditDueOverride, Transaction
+from app.services.statistics import compute_running_total_extremes
 
 main_bp = Blueprint("main", __name__)
 
@@ -47,3 +49,21 @@ def recurring_series():
     return render_template(
         "recurring_series.html", **_credit_cards_context(), **_categories_context()
     )
+
+
+@main_bp.route("/statistics")
+@login_required
+def statistics():
+    checking_accounts = CheckingAccount.query.all()
+    credit_cards = CreditCard.query.all()
+    credit_due_overrides = CreditDueOverride.query.all()
+    transactions = Transaction.query.order_by(Transaction.date).all()
+
+    extremes = compute_running_total_extremes(
+        checking_accounts,
+        transactions,
+        credit_cards,
+        date.today(),
+        credit_due_overrides=credit_due_overrides,
+    )
+    return render_template("statistics.html", extremes=extremes)

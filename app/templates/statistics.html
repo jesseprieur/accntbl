@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics — accntbl{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Statistics</h1>
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back</a>
+  </div>
+
+  <h2 class="h5">Running total range</h2>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Window</th>
+        <th>Minimum</th>
+        <th>Minimum date</th>
+        <th>Maximum</th>
+        <th>Maximum date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for window in extremes %}
+        <tr>
+          <td>{{ window.months }} month{{ 's' if window.months != 1 }}</td>
+          <td class="{{ 'text-danger fw-bold' if window.min_value is not none and window.min_value < 0 }}">
+            {{ "${:,.2f}".format(window.min_value) if window.min_value is not none else "—" }}
+          </td>
+          <td>{{ window.min_date.isoformat() if window.min_date else "—" }}</td>
+          <td>{{ "${:,.2f}".format(window.max_value) if window.max_value is not none else "—" }}</td>
+          <td>{{ window.max_date.isoformat() if window.max_date else "—" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

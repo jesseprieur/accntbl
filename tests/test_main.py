@@ -94,3 +94,25 @@ def test_recurring_series_page_buttons_use_icons(client):
 
     assert '<i class="bi bi-plus-lg"></i> Add recurring series' in body
     assert '<i class="bi bi-arrow-left"></i> Back' in body
+
+
+def test_statistics_requires_login(app):
+    anon_client = app.test_client()
+    response = anon_client.get("/statistics")
+    assert response.status_code == 302
+
+
+def test_statistics_page_renders_windows_table(client):
+    response = client.get("/statistics")
+    assert response.status_code == 200
+
+    body = response.get_data(as_text=True)
+    assert "3 months" in body
+    assert "6 months" in body
+    assert "12 months" in body
+
+
+def test_statistics_nav_link_present_on_other_pages(client):
+    for path in ("/", "/recurring-series", "/settings/"):
+        body = client.get(path).get_data(as_text=True)
+        assert 'href="/statistics"' in body

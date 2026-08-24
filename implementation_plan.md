@@ -88,9 +88,11 @@ grouped at the bottom.
       toggle and open menu, backed by a hidden `category_id` field
       compatible with existing save/read code (`table.js` `saveRow`,
       `FormData.get("category_id")`, `recurring_series.js` modal populate)
-- [x] Replace the 4 existing native category `<select>`s (add-transaction
-      modal, add-series modal, edit-series modal, inline transaction-row
-      edit) with the shared widget
+- [x] Replace the native category `<select>`s (add-transaction modal,
+      add-series modal, edit-series modal, edit-transaction/edit-occurrence
+      modal) with the shared widget — the fourth location was originally an
+      inline transaction-row edit, since replaced by the edit modal (see
+      "Transaction edit modals" below)
 - [x] Categories without an icon render a fallback glyph (e.g. `bi-tag`)
 - [x] Unit/manual verification: icon persists through create/edit/backup
       export-import round-trip; widget correctly sets/reads `category_id`
@@ -115,10 +117,12 @@ grouped at the bottom.
 - [x] Backend endpoint: paginated transaction window by date range
       (merges real `transactions` rows + virtual CC payment-due rows,
       computes running total)
-- [x] Table page renders initial window centered on "today"
+- [x] Table page renders initial window (30 days past / 90 days future)
+      and scrolls the viewport to center on "today"
 - [x] Ajax infinite scroll: fetch more future rows on scroll down (up to
       1 year out), fetch more past rows on scroll up
-- [x] Negative running-total rows visually highlighted
+- [x] Negative running-total values visually highlighted (red/bold text,
+      not a full-row treatment)
 - [x] Month-end virtual rows: showing closing running total and change vs.
       previous month (see specs.md § "Month-end markers")
 - [x] Color coded rows (detached=yellow border, single=blue border,
@@ -179,14 +183,14 @@ grouped at the bottom.
       tool was available in this environment — no visual/DOM check)
 
 ## Statistics page
-- [ ] New nav entry + route, alongside Table / Recurring Series / Settings
-- [ ] Backend calculation: for each of 3 months / 6 months / 1 year
+- [x] New nav entry + route, alongside Table / Recurring Series / Settings
+- [x] Backend calculation: for each of 3 months / 6 months / 1 year
       (`[today, today+N]`), find the min and max cash running total and the
       date each occurs on, reusing the existing running-total calculator —
       see specs.md § "Statistics page"
-- [ ] Page template: single table, one row per window, columns for
+- [x] Page template: single table, one row per window, columns for
       min (value + date) and max (value + date)
-- [ ] Unit tests: min/max correctness per window, tie-breaking (earliest
+- [x] Unit tests: min/max correctness per window, tie-breaking (earliest
       date wins), window boundaries
 
 ### Needs/Wants/Savings/Leftover breakdown
