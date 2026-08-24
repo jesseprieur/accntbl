@@ -448,6 +448,92 @@ payment-due estimate: cheap at personal-scale data volume and avoids
 cache-invalidation complexity. If a window contains a tie for min or max,
 the earliest occurring date wins.
 
+## Needs/Wants/Savings/Leftover breakdown (Statistics page)
+
+A second table on the Statistics page, independent of the min/max table
+above, driven by a month dropdown:
+
+- **Month options**: the current calendar month plus the next 11 (a rolling
+  12-month-forward window from today, matching the main table's forward
+  projection horizon), plus one additional **"Average"** option appended
+  after those 12 months.
+- Selecting a month re-renders the table for that single month (Ajax, no
+  page reload). Selecting "Average" renders the mean of each of the four
+  values (Needs/Wants/Savings/Leftover) across all 12 months, plus a
+  percentage row computed from those averaged dollar values (not an average
+  of each month's percentages) — same underlying `%` formula as any single
+  month, just fed the averaged dollar figures.
+- Layout: one row per bucket — Income, Needs, Wants, Savings, Leftover (in
+  that order) — with two columns, value and `%`. Income's `%` column always
+  displays `100%` (it's the denominator every other row's `%` is computed
+  against; see below), except when Income is $0, in which case it displays
+  `—` like every other row that month.
+
+**Scope of transactions considered**: both `kind=cash` and `kind=credit`
+transactions dated within the selected month (by the transaction's own
+`date`, not a credit card's statement/due date) — deliberately including
+credit card spend here, unlike the running-total calculation, so overspending
+on a card shows up in this breakdown before its payment-due date arrives.
+Generated credit-card payment-due rows and month-end virtual rows are NOT
+included (they aren't real transactions and carry no `needs_wants_savings`
+classification of their own). `skipped` occurrences are excluded, matching
+every other statistic on this page.
+
+**Calculation** (every `needs_wants_savings` value is non-nullable and
+defaults to `need`, so a plain "total minus classified" formula would
+always net to exactly zero — income/inflow transactions are carved out
+of the three buckets to avoid that):
+
+- `Income` = sum of `amount` for transactions in the month with
+  `amount > 0` (paychecks, refunds, one-off gifts, etc.), regardless of
+  their `needs_wants_savings` value.
+- `Needs` = sum of `amount` (all negative/outflow) for transactions in the
+  month with `amount < 0` and `needs_wants_savings = need`, shown in the
+  table as a positive magnitude.
+- `Wants` = same, filtered to `needs_wants_savings = want`.
+- `Savings` = same, filtered to `needs_wants_savings = savings`.
+- `Leftover` = `Income - (Needs + Wants + Savings)`. Can go negative when
+  outflows exceed income for the month — the intended signal that spending
+  (including credit card spend not yet due) has outpaced income.
+- Percentages for Needs/Wants/Savings/Leftover are each bucket's value
+  divided by `Income` (not by the sum of the four buckets, since Leftover
+  can be negative and Income is the stable denominator representative of
+  the classic needs/wants/savings budgeting-ratio convention). If `Income`
+  is zero for a month, all five rows' percentages display as `—` (avoid
+  division by zero).
+
+## Spend-by-category breakdown (Statistics page)
+
+A third table on the Statistics page, driven by the same month dropdown as
+the Needs/Wants/Savings/Leftover breakdown above (selecting a month or
+"Average" re-renders both tables together, not two independent selectors) —
+one row per `categories` row plus a fixed **"None"** row for transactions
+with `category_id IS NULL`, and two columns: value and `%`.
+
+- **Scope**: same as the Needs/Wants/Savings/Leftover breakdown — both
+  `kind=cash` and `kind=credit` transactions dated within the selected
+  month (by the transaction's own `date`), excluding `skipped` occurrences,
+  generated CC payment-due rows, and month-end virtual rows.
+- **Positive amounts are excluded entirely** — not just zeroed out, but
+  omitted from both the per-category sums and the percentage denominator,
+  since this table is specifically a spend (outflow) breakdown, unlike the
+  Income-inclusive table above.
+- `value` for a category = sum of `amount` (all negative) for in-scope
+  transactions with that `category_id` in the month, shown as a positive
+  magnitude. The `None` row sums every in-scope negative-amount transaction
+  with `category_id IS NULL`.
+- `%` for a row = that row's value divided by the sum of every row's value
+  (i.e. total spend across all categories + None that month). If total
+  spend is zero, all `%` cells display as `—`.
+- Every category is always shown as a row (even $0/`—` for months with no
+  spend in that category), so the row set is stable across months; the
+  `None` row is always shown too, even if currently unused.
+- Rows are ordered by descending value (highest spend first); the `None`
+  row is not pinned to a fixed position, it sorts with the rest.
+- **"Average"** option: same convention as the other breakdown table — mean
+  dollar value per category (and `None`) across the rolling 12-month
+  window, with `%` computed from those averaged dollars.
+
 ## Per Month column (Recurring Series page)
 
 The Recurring Series list gains a **Per Month** column showing each series'
