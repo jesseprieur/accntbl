@@ -468,14 +468,14 @@ def test_update_category_changes_name_and_icon(client, app):
 
     response = client.post(
         f"/settings/categories/{category_id}",
-        data={"name": "Food", "icon": "bi-egg-fried"},
+        data={"name": "Food", "icon": "bi-cup-hot"},
     )
     assert response.status_code == 302
 
     with app.app_context():
         updated = Category.query.get(category_id)
         assert updated.name == "Food"
-        assert updated.icon == "bi-egg-fried"
+        assert updated.icon == "bi-cup-hot"
 
 
 def test_update_category_rejects_duplicate_name(client, app):

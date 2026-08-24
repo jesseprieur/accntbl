@@ -35,10 +35,12 @@ close date, which *does* hit your checking balance on its due date.
   yearly, or a custom "every N days/weeks/months") and it populates the
   table automatically. On the main table, **Skip** hides a single
   occurrence without touching the rest of the series (reversible via
-  Un-skip). Editing a row still tied to the series is a normal inline
-  edit — saving it detaches just that occurrence (it becomes a standalone
-  transaction, editable/deletable on its own from then on) while the rest
-  of the series is unaffected; cancelling the edit leaves it attached. Each
+  Un-skip). Editing a row opens an Edit modal (Edit Occurrence for a row
+  still tied to a series, Edit Transaction for a one-off or already
+  detached row) — saving an Edit Occurrence modal detaches just that
+  occurrence (it becomes a standalone transaction, editable/deletable on
+  its own from then on) while the rest of the series is unaffected;
+  cancelling the edit leaves it attached. Each
   series can use a plain fixed amount, or switch to **Advanced** amount
   logic — either a date-based conditional (a top-to-bottom list of "on/after
   this date, use this amount" rules) or an escalating amount that increases
