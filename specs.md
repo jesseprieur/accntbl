@@ -25,11 +25,14 @@ resource gets its own blueprint; cross-cutting math lives in shared service
 modules so no calculation is implemented twice.
 
 - **Routes** (`app/routes/`): one blueprint per resource —
-  `transactions`, `recurring_series`, `checking_accounts`, `credit_cards`,
-  `categories`, `backup`, `statistics`, `auth`, and a `main` blueprint that
-  only renders page shells (index, recurring-series page, statistics page)
-  and delegates all data-fetching to the resource blueprints/services below.
-  No blueprint owns more than one resource's CRUD.
+  `transactions`, `recurring_series`, `checking_accounts`, `credit_cards`
+  (also owns `credit_due_overrides`, since that's a credit-card concern),
+  `categories`, `backup`, `auth`. Three blueprints are page shells only,
+  rendering a template and delegating all data-fetching to the resource
+  blueprints/services: `main` (the main table and Recurring Series pages),
+  `settings` (the Settings page), and `statistics` (the Statistics page,
+  which also owns its own data route). No blueprint owns more than one
+  resource's CRUD.
 - **Services** (`app/services/`):
   - `dates.py` — the one implementation of month/interval arithmetic
     (`add_months`, `month_bounds`, `rolling_months`). Every feature that
@@ -40,15 +43,19 @@ modules so no calculation is implemented twice.
     formatting for server-rendered and JSON responses. Every route/service
     that serializes a dollar amount or a `%` uses this instead of
     reimplementing `"${:,.2f}".format(...)` inline.
+  - `parsing.py` — the one implementation of request-payload parsing and
+    field resolution (dates, decimals, enums, `credit_card_id`/`category_id`
+    defaulting) shared by the `transactions` and `recurring_series`
+    blueprints, which otherwise validate near-identical fields.
   - `recurring.py`, `running_total.py`, `credit_card.py`, `statistics.py`,
     `backup.py` — one feature's business logic each, built on top of
-    `dates.py`/`formatting.py`, never duplicating them.
+    `dates.py`/`formatting.py`/`parsing.py`, never duplicating them.
 - **Models** (`app/models.py`): shared column shapes are defined once via a
   mixin (see "Budget classification" below) rather than copy-pasted onto
   each model that needs them.
-- **Frontend** (`app/static/js/`): one `formatCurrency`-equivalent helper,
-  imported by every JS file that renders a dollar amount, instead of each
-  file reimplementing `Number(value).toFixed(2)`.
+- **Frontend** (`app/static/js/`): `currency.js`'s `Currency.format` is the
+  one money-formatting implementation, used by every JS file that renders
+  a dollar amount instead of each reimplementing `Number(value).toFixed(2)`.
 
 ## Data model
 
@@ -99,8 +106,8 @@ Managed on the Settings page.
 - icon (nullable, string — a Bootstrap Icons class name, e.g. `bi-cart`; see
   "Category icons" below)
 
-The table is **seeded with one row, `Uncategorized`**, on first migration,
-and that row cannot be deleted (it's the permanent fallback, not a regular
+The table is **seeded with one row, `Uncategorized`**, by the base
+migration, and that row cannot be deleted (it's the permanent fallback, not a regular
 user category). Every other transaction/series `category_id` is a required
 FK — there is no `NULL` category state to special-case anywhere in the
 codebase (reporting, deletion checks, forms). Deleting any other category in
@@ -507,7 +514,10 @@ point-in-time snapshots and recovering from DB corruption.
   `render_as_batch=True`/`compare_type=True` into `configure_args`, which
   `migrations/env.py`'s `run_migrations_online()` forwards automatically —
   do not re-pass `render_as_batch=True` explicitly when calling `Migrate()`,
-  it raises `TypeError: multiple values for keyword argument`.
+  it raises `TypeError: multiple values for keyword argument`. The schema
+  is kept as a single base migration rather than one file per incremental
+  change — see "Data model" for what it creates; add new migrations from
+  here forward rather than re-consolidating routinely.
 - DB: SQLite (single file on a persistent volume)
 - Frontend: Bootstrap + vanilla JS/Ajax (no heavy JS framework — keep simple)
 - Local/dev: Docker Compose (flask app container, SQLite file bind-mounted

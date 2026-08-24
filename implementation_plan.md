@@ -4,10 +4,7 @@ Checkboxes track progress across Claude sessions. See specs.md for full
 design rationale before implementing any item below. Organized as a build
 order for the app's current target architecture (see specs.md §
 "Application structure") — not a historical log of how the app actually
-got here. Items already true of the running app are checked; structural
-items the codebase hasn't caught up to yet (blueprint split, shared
-services, NOT-NULL categories, mixin) are unchecked even though the
-feature they support is live, so they stay visible as real follow-up work.
+got here.
 
 ## Project scaffolding
 - [x] Initialize repo structure (`app/`, `migrations/`, `docker/`, etc.)
@@ -18,22 +15,27 @@ feature they support is live, so they stay visible as real follow-up work.
 - [x] SQLAlchemy setup + Alembic init — see specs.md § "Tech stack" for the
       `render_as_batch` configuration gotcha
 - [x] `.env.example` with Flask secret key and app config
-- [ ] `app/routes/` package with one blueprint per resource
+- [x] `app/routes/` package with one blueprint per resource
       (`transactions`, `recurring_series`, `checking_accounts`,
-      `credit_cards`, `categories`, `backup`, `statistics`, `auth`, `main`)
-      — see specs.md § "Application structure". Currently `transactions.py`
-      and `settings.py` each hold multiple unrelated resources' CRUD and
-      need to be split.
-- [ ] `app/services/dates.py`: shared month/interval arithmetic
+      `credit_cards`, `categories`, `backup`, `auth`, plus the page-shell
+      blueprints `main`, `settings`, `statistics`) — see specs.md §
+      "Application structure".
+- [x] `app/services/dates.py`: shared month/interval arithmetic
       (`add_months`, `month_bounds`, `rolling_months`), consumed by
       `recurring.py`, `running_total.py`, and `statistics.py` instead of
       each defining its own `_add_months`/`_month_bounds`.
-- [ ] `app/services/formatting.py`: shared money/percent formatting,
+- [x] `app/services/formatting.py`: shared money/percent formatting,
       consumed by every route/service that serializes a dollar amount
       instead of each defining its own.
-- [ ] Shared `formatCurrency` JS helper, imported by every static JS file
-      that renders a dollar amount instead of each reimplementing
-      `toFixed(2)`.
+- [x] `app/services/parsing.py`: shared request-payload parsing/field
+      resolution, consumed by the `transactions` and `recurring_series`
+      blueprints instead of each defining its own.
+- [x] `app/static/js/currency.js`'s `Currency.format`, imported by every
+      static JS file that renders a dollar amount instead of each
+      reimplementing `toFixed(2)`.
+- [x] Single consolidated base migration (`8b1c4f9a2e3d`) creates the full
+      schema in one step, rather than one file per incremental change —
+      see specs.md § "Tech stack".
 
 ## Data model
 - [x] `users` model + seed script/CLI command to create the single user
@@ -43,15 +45,12 @@ feature they support is live, so they stay visible as real follow-up work.
       `notes`, unique on card+due_date) — intentional stopgap, see specs.md
       § "Credit card payment logic"
 - [x] `categories` model with `icon`
-- [ ] Seed a permanent, non-deletable `Uncategorized` category row on
-      migration; make `category_id` NOT NULL on both `transactions` and
+- [x] Permanent, non-deletable `Uncategorized` category row seeded by the
+      base migration; `category_id` is NOT NULL on both `transactions` and
       `recurring_series`, defaulting to it — see specs.md § `categories`.
-      Currently `category_id` is nullable (retrofitted after transactions
-      already existed) and every consumer has to handle `NULL`.
-- [ ] `BudgetClassificationMixin` (`needs_wants_savings` + `category_id`)
+- [x] `BudgetClassificationMixin` (`needs_wants_savings` + `category_id`)
       applied to both `Transaction` and `RecurringSeries` — see specs.md §
-      "Budget classification". Currently declared independently on each
-      model.
+      "Budget classification".
 - [x] `recurring_series` model (with `credit_card_id`, `amount_logic`)
 - [x] `transactions` model (with `recurring_series_id`, `occurrence_status`
       enum: `attached` | `detached` | `skipped`, `credit_card_id`)
@@ -133,16 +132,15 @@ feature they support is live, so they stay visible as real follow-up work.
 ## Statistics page
 (own blueprint + service module — see specs.md § "Application structure")
 - [x] Nav entry + route, alongside Table / Recurring Series / Settings
-- [ ] Move statistics routes/serialization out of `main.py` into their own
-      `statistics` blueprint, per "Application structure" — currently
-      grafted onto `main_bp` despite having its own service/template/JS.
+- [x] Statistics routes/serialization live in their own `statistics`
+      blueprint, per "Application structure"
 - [x] Running-total extremes table (3/6/12-month windows, min/max + date,
       tie-break to earliest date)
 - [x] Needs/Wants/Savings/Leftover breakdown (month dropdown + Average,
       zero-Income handling) — see specs.md § "Statistics page"
 - [x] Spend-by-category breakdown (same month dropdown, positive amounts
-      excluded, "None"/zero-spend handling — will become "every category
-      always has a value" once categories are NOT NULL)
+      excluded; every category — including `Uncategorized` — always has a
+      row since `category_id` is non-nullable)
 - [x] Unit tests for all three sections
 
 ## Backup / import-export
