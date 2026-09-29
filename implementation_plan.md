@@ -48,6 +48,10 @@ got here.
 - [x] Permanent, non-deletable `Uncategorized` category row seeded by the
       base migration; `category_id` is NOT NULL on both `transactions` and
       `recurring_series`, defaulting to it — see specs.md § `categories`.
+- [ ] Permanent, non-deletable `Balance Adjustment` category row seeded by a
+      new migration (not user-assignable from normal category pickers) —
+      see specs.md § `categories`
+- [ ] `balance_snapshots` model + migration — see specs.md § `balance_snapshots`
 - [x] `BudgetClassificationMixin` (`needs_wants_savings` + `category_id`)
       applied to both `Transaction` and `RecurringSeries` — see specs.md §
       "Budget classification".
@@ -81,7 +85,14 @@ got here.
 - [x] Basic/Advanced amount-logic toggle on recurring series forms —
       conditional date-based rules and escalating (absolute/percentage)
       rules — see specs.md § "Advanced amount logic"
-- [x] Unit tests for all of the above
+- [ ] `app/services/balance_adjustment.py`: compute today's computed balance
+      (pooled checking running total, or a card's starting_balance + its
+      kind=credit transactions to date), diff against a user-entered actual
+      balance, write the `balance_snapshots` "before" row, and write the
+      one-off adjustment transaction tagged `Balance Adjustment` — see
+      specs.md § "Balance adjustments"
+- [x] Unit tests for all of the above (pre-existing services)
+- [ ] Unit tests for `balance_adjustment.py`
 
 ## Settings pages (accounts / credit cards / categories)
 - [x] View/edit checking accounts (add/edit/remove, starting balance,
@@ -92,6 +103,9 @@ got here.
       `categories`, "Category icons"
 - [x] Shared custom category-dropdown widget (icon+name), used everywhere
       a category is picked, backed by a hidden `category_id` field
+- [ ] "Update Balance" action on each checking account row and each credit
+      card row, calling `balance_adjustment.py` — see specs.md § "Balance
+      adjustments"
 
 ## Recurring Series page
 - [x] View/edit/delete/add recurring series
@@ -142,6 +156,13 @@ got here.
       excluded; every category — including `Uncategorized` — always has a
       row since `category_id` is non-nullable)
 - [x] Unit tests for all three sections
+- [ ] Exclude `Balance Adjustment`-category transactions from the NWS and
+      spend-by-category breakdown scopes — see specs.md § "Statistics page"
+- [ ] Balance Adjustment History table (reads `balance_snapshots`, most
+      recent first; Account/When/Start Date/End Date/Min/Max columns) — see
+      specs.md § "Statistics page"
+- [ ] Unit tests for the Balance Adjustment History table and the breakdown
+      exclusion
 
 ## Backup / import-export
 (see specs.md § "Backup / import-export")
@@ -152,6 +173,8 @@ got here.
 - [x] Settings page: download/restore controls behind a confirmation modal
 - [x] Unit tests: export/import round-trip, schema mismatch rejection,
       rollback on failure
+- [ ] Include `balance_snapshots` in export/import (FK-safe delete/insert
+      order) — see specs.md § "Backup / import-export"
 
 ## Polish / validation
 - [x] Bootstrap components (radio toggle buttons, etc.) over raw HTML

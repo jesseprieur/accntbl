@@ -50,6 +50,12 @@ modules so no calculation is implemented twice.
   - `recurring.py`, `running_total.py`, `credit_card.py`, `statistics.py`,
     `backup.py` — one feature's business logic each, built on top of
     `dates.py`/`formatting.py`/`parsing.py`, never duplicating them.
+  - `balance_adjustment.py` — the one implementation of "compute today's
+    computed balance, diff it against a user-entered actual balance, write
+    the adjustment transaction, and snapshot the before running-total
+    extremes," shared by the `checking_accounts` and `credit_cards`
+    blueprints (see "Balance adjustments" below) instead of each
+    reimplementing it.
 - **Models** (`app/models.py`): shared column shapes are defined once via a
   mixin (see "Budget classification" below) rather than copy-pasted onto
   each model that needs them.
@@ -106,14 +112,18 @@ Managed on the Settings page.
 - icon (nullable, string — a Bootstrap Icons class name, e.g. `bi-cart`; see
   "Category icons" below)
 
-The table is **seeded with one row, `Uncategorized`**, by the base
-migration, and that row cannot be deleted (it's the permanent fallback, not a regular
-user category). Every other transaction/series `category_id` is a required
-FK — there is no `NULL` category state to special-case anywhere in the
-codebase (reporting, deletion checks, forms). Deleting any other category in
-use is blocked (must reassign referencing transactions/series to another
-category first, `Uncategorized` included), mirroring the `credit_cards`
-deletion-blocking pattern.
+The table is **seeded with two permanent rows, `Uncategorized` and `Balance
+Adjustment`**, by the base migration, and neither can be deleted (they're
+fallback/system rows, not regular user categories). `Balance Adjustment` is
+applied automatically to every adjustment transaction written by the
+"Balance adjustments" flow (see below) — it's not user-assignable from the
+normal category picker on the transaction/series forms, since it would be
+misleading on anything but an actual balance-reconciliation row. Every other
+transaction/series `category_id` is a required FK — there is no `NULL`
+category state to special-case anywhere in the codebase (reporting, deletion
+checks, forms). Deleting any other category in use is blocked (must reassign
+referencing transactions/series to another category first, `Uncategorized`
+included), mirroring the `credit_cards` deletion-blocking pattern.
 
 ### Category icons
 
@@ -211,6 +221,25 @@ recurring occurrences live here.
     table but preserved for history/audit, series otherwise continues
     normally. Un-skipping sets this back to `attached`.
 
+### `balance_snapshots`
+A point-in-time record written automatically whenever a balance adjustment
+is made (see "Balance adjustments" below), so the Statistics page can show a
+history of what the forward projection looked like right before each
+correction. Only the "before" state is stored — the "after" state is always
+recoverable either from the live Running-Total Extremes table (if this is
+the most recent snapshot) or from the next snapshot's "before" values (if a
+later adjustment has since been made), so there's no pair to keep in sync.
+- id
+- created_at (timestamp)
+- account_type (`checking` | `credit_card`)
+- credit_card_id (nullable FK to `credit_cards` — set when
+  `account_type = credit_card`, null for `checking`)
+- window_start_date (= "today" at the moment of the adjustment)
+- window_end_date (= `window_start_date` + 12 months)
+- min_amount / min_date, max_amount / max_date (the 12-month window's
+  running-total extremes as of immediately *before* the adjustment
+  transaction was written)
+
 ## Advanced amount logic
 
 `recurring_series.amount_logic` lets a series' per-occurrence amount deviate
@@ -302,6 +331,48 @@ cycle. Instead, this runs independently **per card**:
 
 Past-dated transactions remain in the table (scrollable above "today") for
 historical record-keeping, not just future projection.
+
+## Balance adjustments
+
+The projected checking balance and each credit card's projected balance can
+drift from the real-world numbers over time (unrecorded cash spend, bank
+fees, etc.). Rather than editing the immutable `checking_accounts.as_of_date`
+/`credit_cards.starting_balance` fields (which would silently discard the
+distinction between historical fact and correction), reconciling either
+balance is done via an **"Update Balance"** action, available per checking
+account and per credit card wherever they're managed (see "Frontend"), and
+implemented once in `app/services/balance_adjustment.py`, shared by the
+`checking_accounts` and `credit_cards` blueprints:
+
+1. The user enters the real, current balance for that account/card.
+2. The app computes that account/card's *computed* balance as of today:
+   - **Checking**: the running total's value as of "today" (see "Running
+     total calculation") — pooled across all `checking_accounts`, since cash
+     transactions aren't tied to a specific account (see "Open questions").
+   - **Credit card**: `starting_balance` plus the sum of all `amount` on
+     that card's kind=credit transactions dated on or before today
+     (excluding `skipped` rows) — the amount currently owed on the card,
+     which is a running total similar to checking's but scoped to one card
+     and never reduced by payment-due rows (those move money in the
+     checking ledger, not this card's own balance).
+3. `delta = entered_balance - computed_balance`.
+4. Before writing anything, a `balance_snapshots` row is written capturing
+   the 12-month Running-Total Extremes window as it stood right before this
+   change (see the `balance_snapshots` data model above).
+5. A one-off adjustment transaction is created dated today for `delta`:
+   kind=cash (no `credit_card_id`) for a checking adjustment, kind=credit
+   (with `credit_card_id` set) for a card adjustment. Both are tagged with
+   the seeded, permanent `Balance Adjustment` category (see "categories")
+   so they're visually distinguishable from real budget activity and
+   excluded from the Needs/Wants/Savings and spend-by-category breakdowns
+   (see "Statistics page").
+6. If `delta` is zero, no snapshot or transaction is written — there's
+   nothing to reconcile or record.
+
+The adjustment transaction behaves like any other one-off row afterward
+(editable/deletable via the normal Edit Transaction modal) — the "Update
+Balance" action is just a convenience for producing the correct one-off
+delta instead of the user computing and entering it by hand.
 
 ## Month-end markers
 
@@ -398,14 +469,17 @@ password, Flask session-based auth). No self-registration UI needed for v1
 - Recurring series management lives on its own **Recurring Series page**,
   separate from the main table, so series-template edits don't get confused
   with editing a single row.
+- An "Update Balance" button sits next to each checking account row and each
+  credit card row on the Settings page (see "Balance adjustments").
 
 ## Statistics page
 
 A top-level page, alongside the main table / Recurring Series / Settings
 pages, with its own blueprint and service module (`services/statistics.py`,
-built on the shared `services/dates.py`). Three independent sections, all
+built on the shared `services/dates.py`). Four independent sections, all
 computed at render time (not persisted — same rationale as the credit-card
-payment-due estimate).
+payment-due estimate), except Balance Adjustment History, which reads the
+persisted `balance_snapshots` table.
 
 **Running-total extremes**: one table, one row per forward-looking window
 (**3 months**, **6 months**, **1 year**, each `[today, today + N]`), using
@@ -413,12 +487,26 @@ the same cash running total defined in "Running total calculation" (skipped
 rows excluded). Each row shows the minimum running total and its date, and
 the maximum and its date. Ties go to the earliest date.
 
+**Balance Adjustment History**: a table listing every row in
+`balance_snapshots`, most recent first, with columns Account (checking, or
+the credit card's name), When (`created_at`), Start Date (`window_start_date`),
+End Date (`window_end_date`), Min ($ + date), and Max ($ + date) — the same
+min/max columns as the 12-month row of the Running-Total Extremes table
+above, plus the window's own start/end dates. Since only the "before" state
+is ever stored, comparing consecutive rows for the same account (or a row
+against the live Running-Total Extremes table, for the most recent
+adjustment) shows the before/after effect of each balance correction — see
+"Balance adjustments" and the `balance_snapshots` data model. Empty until
+the first balance adjustment is made.
+
 **Needs/Wants/Savings/Leftover breakdown**: a second table, driven by a
 month dropdown (current month + next 11, a rolling 12-month-forward window,
 plus an "Average" option). Scope: both `kind=cash` and `kind=credit`
 transactions dated in the selected month (deliberately including credit
 spend here, unlike the running total, so overspending shows up before its
-due date), excluding `skipped` occurrences and generated/virtual rows.
+due date), excluding `skipped` occurrences, generated/virtual rows, and any
+transaction in the `Balance Adjustment` category (a reconciliation plug, not
+real budget activity — see "Balance adjustments").
 - `Income` = sum of `amount` where `amount > 0`, regardless of
   `needs_wants_savings`.
 - `Needs`/`Wants`/`Savings` = sum of `amount` (outflows) filtered to the
@@ -482,7 +570,10 @@ point-in-time snapshots and recovering from DB corruption.
     individual `attached` transaction rows are NOT exported.
   - `transactions` where `recurring_series_id IS NULL` OR
     `occurrence_status IN ('detached', 'skipped')` — every row that isn't a
-    currently-`attached` series occurrence.
+    currently-`attached` series occurrence. Balance-adjustment transactions
+    are ordinary one-off rows (`recurring_series_id IS NULL`) and are
+    included by this same rule, no special-casing needed.
+  - `balance_snapshots` (all fields) — historical record, restored as-is.
   - top-level `schema_version` (latest Alembic revision id at export time),
     so import can detect/reject an incompatible schema.
   - `users` is excluded — a restore always keeps the current environment's
@@ -495,10 +586,10 @@ point-in-time snapshots and recovering from DB corruption.
   Server-side steps:
   1. Validate `schema_version` matches current Alembic head; reject
      otherwise (no schema migration on import — out of scope).
-  2. Single DB transaction: delete all rows from `transactions`,
-     `recurring_series`, `credit_due_overrides`, `credit_cards`,
-     `checking_accounts`, `categories` (FK-safe order), then insert the
-     backup's rows in reverse order.
+  2. Single DB transaction: delete all rows from `balance_snapshots`,
+     `transactions`, `recurring_series`, `credit_due_overrides`,
+     `credit_cards`, `checking_accounts`, `categories` (FK-safe order), then
+     insert the backup's rows in reverse order.
   3. Re-run the recurring-occurrence generator for every imported series
      over the standard window, to regenerate `attached` rows.
   4. On any failure, roll back — the app must never be left with a
