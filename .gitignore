@@ -1,4 +1,5 @@
 # Ignore claude related files
+.claude/settings.local.json
 ralph.py
 
 # Byte-compiled / optimized / DLL files
